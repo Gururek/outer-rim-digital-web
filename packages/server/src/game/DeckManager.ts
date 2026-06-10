@@ -95,4 +95,36 @@ export class DeckManager {
     }
     return null;
   }
+
+  handleDeliverCargo(sessionId: string, cardSlotIndex: number): { card: any; reward: number } | null {
+    const ps = this.state.players.get(sessionId);
+    if (!ps) return null;
+
+    // Find the cargo card in player's inventory
+    const cargoSlots = ps.cargoSlots;
+    if (cardSlotIndex >= cargoSlots.length) return null;
+
+    const slot = cargoSlots[cardSlotIndex];
+    if (!slot || !slot.isOccupied) return null;
+
+    const card = MARKET_CARDS.find(c => c.id === slot.cardDefinitionId);
+    if (!card || card.deckType !== 'CARGO') return null;
+
+    const cargoCard = card as import('@outer-rim/shared').CargoCard;
+    
+    // Check if player is at the delivery destination
+    if (ps.currentNodeId !== Number(cargoCard.destinationPlanetId)) return null;
+
+    const reward = cargoCard.deliveryReward ?? cargoCard.buyCost * 2;
+
+    // Remove from inventory
+    slot.isOccupied = false;
+    slot.cardDefinitionId = -1;
+    slot.isRotated = false;
+
+    // Pay the player
+    ps.credits += reward;
+
+    return { card: cargoCard, reward };
+  }
 }

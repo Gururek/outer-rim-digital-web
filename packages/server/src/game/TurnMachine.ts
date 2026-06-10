@@ -2,7 +2,7 @@ import type { GameState } from '../rooms/schema/GameState.js';
 import type { DeckManager } from './DeckManager.js';
 import type { PatrolManager } from './PatrolManager.js';
 import { CombatResolver } from './CombatResolver.js';
-import { findPath, MAP_NODES, CHARACTERS, getShip } from '@outer-rim/shared';
+import { findPath, MAP_NODES, CHARACTERS, getShip, getRandomDatabankCard, getDatabankCard, MARKET_CARDS } from '@outer-rim/shared';
 import type {
   GamePhase, PlanningChoice, EncounterChoice,
   FactionType, ServerEvent
@@ -329,29 +329,44 @@ export class TurnMachine {
     const ps = this.state.players.get(sessionId)!;
     const node = MAP_NODES.find(n => n.id === ps.currentNodeId);
     
-    let resolvedContactId = contactId;
     let contactClass: string | undefined;
+    let resolvedContactId: number;
+    let contactName: string;
+    let contactDesc: string;
     
-    if (resolvedContactId == null && node) {
-      // Auto-select first available contact space at this node
-      if (node.contactSpaces.length > 0) {
-        const space = node.contactSpaces[0];
-        resolvedContactId = node.id * 100 + node.contactSpaces.indexOf(space) + 1;
-        contactClass = space.class;
+    if (contactId != null) {
+      // Explicit contact — find it
+      const dbCard = getDatabankCard(contactId);
+      if (dbCard) {
+        resolvedContactId = contactId;
+        contactName = dbCard.name;
+        contactDesc = dbCard.description;
       } else {
-        // No contacts at this node — tell the player
-        this.room.sendToClient(sessionId, {
-          event: 'CINEMATIC_TRIGGER',
-          data: { type: 'NO_CONTACTS', payload: { nodeId: ps.currentNodeId, nodeName: node?.name ?? 'here' } }
-        });
-        setTimeout(() => this.transitionTo('WIN_CHECK'), 2000);
-        return;
+        resolvedContactId = contactId;
+        contactName = `Stranger #${contactId}`;
+        contactDesc = 'A mysterious figure.';
       }
+    } else if (node && node.contactSpaces.length > 0) {
+      // Auto-select from first contact space, draw random databank card
+      const space = node.contactSpaces[0];
+      const dbCard = getRandomDatabankCard(space.class);
+      resolvedContactId = dbCard.id;
+      contactClass = space.class;
+      contactName = dbCard.name;
+      contactDesc = dbCard.description;
+    } else {
+      // No contacts at this node
+      this.room.sendToClient(sessionId, {
+        event: 'CINEMATIC_TRIGGER',
+        data: { type: 'NO_CONTACTS', payload: { nodeId: ps.currentNodeId, nodeName: node?.name ?? 'here' } }
+      });
+      setTimeout(() => this.transitionTo('WIN_CHECK'), 2000);
+      return;
     }
     
     this.room.broadcastEvent({
       event: 'CONTACT_REVEALED',
-      data: { contactId: resolvedContactId!, dataBankCardNumber: resolvedContactId! }
+      data: { contactId: resolvedContactId, dataBankCardNumber: resolvedContactId }
     });
     setTimeout(() => this.transitionTo('WIN_CHECK'), 3000);
   }
@@ -418,7 +433,15 @@ export class TurnMachine {
     if (!ps) return 1;
     const ship = getShip(ps.shipId);
     let hyperdrive = ship?.hyperdrive ?? 4;
-    // TODO: add mod bonuses from ps.modSlots
+    // Add hyperdrive bonuses from equipped mods
+    for (const slot of ps.modSlots) {
+      if (slot.isOccupied) {
+        const card = MARKET_CARDS.find((c) => c.id === slot.cardDefinitionId);
+        if (card && 'hyperdriveBonus' in card && (card as any).hyperdriveBonus) {
+          hyperdrive += (card as any).hyperdriveBonus;
+        }
+      }
+    }
     return hyperdrive;
   }
 
@@ -426,14 +449,34 @@ export class TurnMachine {
     const ps = this.state.players.get(sessionId);
     if (!ps) return 1;
     const ship = getShip(ps.shipId);
-    return ship?.shipCombatValue ?? 3;
+    let combat = ship?.shipCombatValue ?? 3;
+    // Add combat dice bonuses from equipped gear/mod
+    for (const slot of ps.modSlots) {
+      if (slot.isOccupied) {
+        const card = MARKET_CARDS.find((c) => c.id === slot.cardDefinitionId);
+        if (card && 'attackDiceBonus' in card && (card as any).attackDiceBonus) {
+          combat += (card as any).attackDiceBonus;
+        }
+      }
+    }
+    return combat;
   }
 
   private getShipMaxHull(sessionId: string): number {
     const ps = this.state.players.get(sessionId);
     if (!ps) return 1;
     const ship = getShip(ps.shipId);
-    return ship?.maxHull ?? 6;
+    let hull = ship?.maxHull ?? 6;
+    // Add hull bonuses from equipped mods
+    for (const slot of ps.modSlots) {
+      if (slot.isOccupied) {
+        const card = MARKET_CARDS.find((c) => c.id === slot.cardDefinitionId);
+        if (card && 'hullBonus' in card && (card as any).hullBonus) {
+          hull += (card as any).hullBonus;
+        }
+      }
+    }
+    return hull;
   }
 
   private modifyRep(

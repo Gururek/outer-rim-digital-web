@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { getNodeById } from '@outer-rim/shared';
+import { getNodeById, getDatabankCard, getCardById } from '@outer-rim/shared';
 
 interface CinematicProps {
   onDismiss: () => void;
@@ -97,7 +97,23 @@ function formatEvent(type: string, payload: Record<string, unknown>): string {
     }
     case 'CONTACT_REVEALED': {
       const contactId = Number(payload.contactId ?? 0);
+      const dbCard = getDatabankCard(contactId);
+      if (dbCard) return `You've made contact with ${dbCard.name}\n"${dbCard.description}"`;
       return `Making contact with Mysterious Stranger #${contactId}...`;
+    }
+    case 'CARGO_DELIVERED': {
+      const cardName = String(payload.cardName ?? 'cargo');
+      const reward = Number(payload.reward ?? 0);
+      return `Cargo delivered! ${cardName} — earned ${reward} credits.`;
+    }
+    case 'CARD_PURCHASED': {
+      const sessionId = String(payload.sessionId ?? '');
+      const cardId = Number(payload.cardId ?? 0);
+      const card = getCardById(cardId);
+      const cardName = card ? card.name : `Card #${cardId}`;
+      const player = store.players.get(sessionId);
+      const who = player ? player.displayName : sessionId.slice(0, 6);
+      return `${who} acquired ${cardName}`;
     }
     case 'DICE_ROLLED': {
       const rolls = payload.rolls as Array<{ faces: string[]; totalDamage: number }> | undefined;

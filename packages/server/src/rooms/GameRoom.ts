@@ -7,6 +7,7 @@ import { TurnMachine } from '../game/TurnMachine.js';
 import { DeckManager } from '../game/DeckManager.js';
 import { PatrolManager } from '../game/PatrolManager.js';
 import type { ClientMessage, ServerEvent } from '@outer-rim/shared';
+import { MARKET_CARDS } from '@outer-rim/shared';
 
 export class GameRoom extends Room<GameState> {
   private turnMachine!: TurnMachine;
@@ -54,9 +55,28 @@ export class GameRoom extends Room<GameState> {
     this.onMessage('MARKET_BUY', (client: any, msg: any) => {
       const cardId = this.deckManager.handleBuy(client.sessionId, msg.deckType);
       if (cardId) {
+        // Add card to player's inventory
+        this.addCardToInventory(client.sessionId, cardId);
         this.broadcastEvent({
           event: 'CINEMATIC_TRIGGER',
           data: { type: 'CARD_PURCHASED', payload: { sessionId: client.sessionId, cardId } }
+        });
+      }
+    });
+
+    this.onMessage('DELIVER_CARGO', (client: any, msg: any) => {
+      const result = this.deckManager.handleDeliverCargo(client.sessionId, msg.cardSlotIndex);
+      if (result) {
+        this.broadcastEvent({
+          event: 'CINEMATIC_TRIGGER',
+          data: {
+            type: 'CARGO_DELIVERED',
+            payload: {
+              sessionId: client.sessionId,
+              cardName: result.card.name,
+              reward: result.reward,
+            }
+          }
         });
       }
     });
@@ -132,5 +152,35 @@ export class GameRoom extends Room<GameState> {
   sendToClient(sessionId: string, event: ServerEvent) {
     const client = this.clients.find((c: any) => c.sessionId === sessionId);
     client?.send('SERVER_EVENT', event);
+  }
+
+  private addCardToInventory(sessionId: string, cardId: number) {
+    const ps = this.state.players.get(sessionId);
+    if (!ps) return;
+
+    const card = MARKET_CARDS.find((c) => c.id === cardId);
+    if (!card) return;
+
+    // Find the correct slot array and an available slot
+    const deckType = card.deckType;
+    let slots: any[] | null = null;
+
+    switch (deckType) {
+      case 'CARGO': slots = ps.cargoSlots; break;
+      case 'GEAR_MOD': slots = ps.modSlots; break;
+      case 'JOB': slots = ps.jobBountySlots; break;
+      case 'BOUNTY': slots = ps.jobBountySlots; break;
+      case 'LUXURY': slots = ps.modSlots; break;
+      case 'SHIP': slots = ps.modSlots; break;
+    }
+
+    if (!slots) return;
+
+    // Find first empty slot, or create one if all occupied
+    const emptySlot = Array.from(slots).find((s: any) => !s.isOccupied);
+    if (emptySlot) {
+      emptySlot.isOccupied = true;
+      emptySlot.cardDefinitionId = cardId;
+    }
   }
 }
