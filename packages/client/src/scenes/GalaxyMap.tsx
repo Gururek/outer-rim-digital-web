@@ -1,8 +1,9 @@
+import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration } from '@react-three/postprocessing';
 import { Vector2 } from 'three';
-import { MAP_NODES } from '@outer-rim/shared';
+import { MAP_NODES, findPath } from '@outer-rim/shared';
 import PlanetNode from './nodes/PlanetNode';
 import NavPointNode from './nodes/NavPointNode';
 import PlayerShip from './ships/PlayerShip';
@@ -15,6 +16,42 @@ interface GalaxyMapProps {
 }
 
 export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
+  const phase = useGameStore(s => s.phase);
+  const activePlayerId = useGameStore(s => s.activePlayerId);
+  const mySessionId = useGameStore(s => s.mySessionId);
+  const players = useGameStore(s => s.players);
+  const moveHighlight = useGameStore(s => s.moveHighlight);
+
+  const myPlayer = players.get(mySessionId);
+  const isMyTurn = activePlayerId === mySessionId;
+  const canMove = phase === 'ACTION' && isMyTurn && onMoveConfirm != null;
+
+  // Compute set of reachable node IDs within hyperdrive range
+  const reachableNodeIds = useMemo<Set<number>>(() => {
+    if (!canMove || !myPlayer) return new Set();
+    const hyperdrive = moveHighlight?.hyperdrive ?? 4;
+    const startId = myPlayer.currentNodeId;
+    const reachable = new Set<number>();
+    // BFS: find all nodes reachable within hyperdrive hops
+    const visited = new Set<number>();
+    const queue: { nodeId: number; hops: number }[] = [{ nodeId: startId, hops: 0 }];
+    visited.add(startId);
+    while (queue.length > 0) {
+      const { nodeId, hops } = queue.shift()!;
+      if (hops >= hyperdrive) continue;
+      const node = MAP_NODES.find(n => n.id === nodeId);
+      if (!node) continue;
+      for (const neighborId of node.connectedNodeIds) {
+        if (!visited.has(neighborId)) {
+          visited.add(neighborId);
+          reachable.add(neighborId);
+          queue.push({ nodeId: neighborId, hops: hops + 1 });
+        }
+      }
+    }
+    return reachable;
+  }, [canMove, myPlayer?.currentNodeId, moveHighlight?.hyperdrive]);
+
   return (
     <Canvas
       camera={{ position: [0, 18, 8], fov: 55 }}
@@ -34,11 +71,26 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
       {/* Map nodes */}
       {MAP_NODES.map(node =>
         node.type === 'PLANET' ? (
-          <PlanetNode key={node.id} node={node} onMoveConfirm={onMoveConfirm} />
+          <PlanetNode
+            key={node.id}
+            node={node}
+            isReachable={reachableNodeIds.has(node.id)}
+            onMoveConfirm={onMoveConfirm}
+          />
         ) : node.type === 'NAVPOINT' ? (
-          <NavPointNode key={node.id} node={node} onMoveConfirm={onMoveConfirm} />
+          <NavPointNode
+            key={node.id}
+            node={node}
+            isReachable={reachableNodeIds.has(node.id)}
+            onMoveConfirm={onMoveConfirm}
+          />
         ) : node.type === 'MAELSTROM' ? (
-          <NavPointNode key={node.id} node={node} onMoveConfirm={onMoveConfirm} />
+          <NavPointNode
+            key={node.id}
+            node={node}
+            isReachable={reachableNodeIds.has(node.id)}
+            onMoveConfirm={onMoveConfirm}
+          />
         ) : null
       )}
 
@@ -58,8 +110,16 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
 
       {/* Post-processing */}
       <EffectComposer>
-        <Bloom intensity={0.6} luminanceThreshold={0.85} luminanceSmoothing={0.9} />
-        <ChromaticAberration offset={new Vector2(0.0005, 0.0005)} radialModulation={false} modulationOffset={0} />
+        <Bloom
+          intensity={0.15}
+          luminanceThreshold={0.4}
+          luminanceSmoothing={0.1}
+        />
+        <ChromaticAberration
+          offset={new Vector2(0.0005, 0.0005)}
+          radialModulation={false}
+          modulationOffset={0}
+        />
       </EffectComposer>
     </Canvas>
   );
@@ -68,14 +128,19 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
 function PlayerShips() {
   const players = useGameStore(s => s.players);
   const mySessionId = useGameStore(s => s.mySessionId);
+  const entries = Array.from(players.entries());
   return (
     <>
-      {Array.from(players.entries()).map(([id, ps]) => (
+      {entries.map(([sessionId, player]) => (
         <PlayerShip
-          key={id}
-          sessionId={id}
-          playerData={ps}
-          isLocalPlayer={id === mySessionId}
+          key={sessionId}
+          sessionId={sessionId}
+          playerData={{
+            displayName: player.displayName,
+            currentNodeId: player.currentNodeId,
+            characterId: player.characterId,
+          }}
+          isLocalPlayer={sessionId === mySessionId}
         />
       ))}
     </>
@@ -84,12 +149,12 @@ function PlayerShips() {
 
 function PatrolShips() {
   const patrolNodes = useGameStore(s => s.patrolNodes);
-  const factions = ['HUTT', 'SYNDICATE', 'IMPERIAL', 'REBEL'] as const;
-
+  const factions = (Object.keys(patrolNodes) as Array<keyof typeof patrolNodes>)
+    .filter(k => k !== 'NONE');
   return (
     <>
-      {factions.map(f => (
-        <PatrolShip key={f} faction={f} nodeId={patrolNodes[f] ?? -1} />
+      {factions.map((faction) => (
+        <PatrolShip key={faction} faction={faction as import('@outer-rim/shared').FactionType} nodeId={patrolNodes[faction]} />
       ))}
     </>
   );

@@ -32,7 +32,7 @@ export default function GameOverScreen({ onReturnToLobby }: GameOverScreenProps)
           </div>
           {char && (
             <div style={styles.winnerChar}>
-              {char.name} · {char.ship}
+              {char.name} · {char.personalGoal}
             </div>
           )}
           <div style={styles.fameDisplay}>

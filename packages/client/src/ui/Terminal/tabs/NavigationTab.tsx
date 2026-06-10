@@ -1,6 +1,7 @@
 import { useGameStore } from '../../../stores/gameStore';
+import { CHARACTERS } from '@outer-rim/shared';
 import type { ClientMessage, PlanningChoice } from '@outer-rim/shared';
-import { MAP_NODES, getNodeById, getConnectedNodes, findPath } from '@outer-rim/shared';
+import { MAP_NODES, getNodeById, getConnectedNodes } from '@outer-rim/shared';
 
 interface Props {
   onSend: (msg: ClientMessage) => void;
@@ -27,95 +28,205 @@ export default function NavigationTab({ onSend }: Props) {
     onSend({ type: 'CONFIRM_MOVE', payload: { destinationNodeId: destNodeId } });
   };
 
+  // Get character info for max health comparison
+  const character = CHARACTERS.find(c => c.id === myPlayer.characterId);
+  const maxHealth = character?.maxHealth ?? 8;
+  const isDefeated = myPlayer.characterDamage >= maxHealth;
+
+  // ─── PLANNING PHASE ──────────────────────────────────────────────────────────
+
   if (phase === 'PLANNING' && isMyTurn) {
     return (
       <div>
         <h3 style={styles.heading}>PLANNING PHASE</h3>
-        <p style={styles.text}>Location: {currentNode?.name ?? 'Unknown'}</p>
+        <div style={styles.infoRow}>
+          <span style={styles.label}>Location:</span>
+          <span style={styles.value}>{currentNode?.name ?? 'Unknown'}</span>
+        </div>
+        <div style={styles.infoRow}>
+          <span style={styles.label}>Credits:</span>
+          <span style={{ ...styles.value, color: '#ffd700' }}>{myPlayer.credits} cr</span>
+        </div>
+        <div style={styles.infoRow}>
+          <span style={styles.label}>Health:</span>
+          <span style={{ ...styles.value, color: myPlayer.characterDamage > 0 ? '#ff8844' : '#00ff88' }}>
+            {maxHealth - myPlayer.characterDamage} / {maxHealth}
+          </span>
+        </div>
+
+        {isDefeated && (
+          <div style={styles.defeatedBanner}>
+            <p style={styles.defeatedText}>DEFEATED — Must RECOVER this turn</p>
+          </div>
+        )}
+
         <div style={styles.choices}>
-          <button style={styles.btn} onClick={() => handlePlanningChoice('MOVE')}>
+          <button
+            style={{ ...styles.btn, ...styles.moveBtn }}
+            onClick={() => handlePlanningChoice('MOVE')}
+            disabled={isDefeated}
+          >
             🚀 MOVE
+            <span style={styles.btnSubtext}>Travel on the galaxy map</span>
           </button>
-          <button style={styles.btn} onClick={() => handlePlanningChoice('RECOVER')}>
+          <button
+            style={{ ...styles.btn, ...styles.recoverBtn }}
+            onClick={() => handlePlanningChoice('RECOVER')}
+          >
             🩹 RECOVER
+            <span style={styles.btnSubtext}>Repair all hull &amp; health damage</span>
           </button>
-          <button style={styles.btn} onClick={() => handlePlanningChoice('GAIN_CREDITS')}>
-            💰 GAIN +2000cr
+          <button
+            style={{ ...styles.btn, ...styles.creditsBtn }}
+            onClick={() => handlePlanningChoice('GAIN_CREDITS')}
+            disabled={isDefeated}
+          >
+            💰 GAIN +2000 cr
+            <span style={styles.btnSubtext}>Skip actions to earn credits</span>
           </button>
         </div>
+
+        {isDefeated && (
+          <p style={styles.hint}>Defeated players cannot move or gain credits.</p>
+        )}
       </div>
     );
   }
+
+  // ─── ACTION PHASE ────────────────────────────────────────────────────────────
 
   if (phase === 'ACTION' && isMyTurn) {
     const actionsLeft = myPlayer.actionsRemaining;
     return (
       <div>
         <h3 style={styles.heading}>ACTION PHASE</h3>
-        <p style={styles.text}>Location: {currentNode?.name ?? 'Unknown'}</p>
-        <p style={styles.actCount}>ACTIONS LEFT: {actionsLeft}</p>
-        <p style={styles.subtext}>You may: buy/sell at market, deliver cargo, interact with contacts.</p>
-        <button style={styles.btn} onClick={() => onSend({ type: 'END_ACTION_PHASE' })}>
-          END ACTION
-        </button>
+        <div style={styles.infoRow}>
+          <span style={styles.label}>Location:</span>
+          <span style={styles.value}>{currentNode?.name ?? 'Unknown'}</span>
+        </div>
+        <div style={styles.infoRow}>
+          <span style={styles.label}>Credits:</span>
+          <span style={{ ...styles.value, color: '#ffd700' }}>{myPlayer.credits} cr</span>
+        </div>
+        <div style={styles.actCount}>
+          ACTIONS REMAINING: {actionsLeft}
+        </div>
+        <p style={styles.subtext}>Buy/sell at market, deliver cargo, or interact with contacts.</p>
 
         {/* Connected nodes — only show MOVE if actions remain */}
         {actionsLeft > 0 && (
           <>
-            <h4 style={styles.subheading}>Reachable Systems</h4>
+            <h4 style={styles.subheading}>Move to System</h4>
             <div style={styles.nodeList}>
               {connected.map(node => (
                 <div key={node.id} style={styles.nodeItem}>
-                  <span>{node.type === 'PLANET' ? '🪐' : '✦'} {node.name}</span>
+                  <div>
+                    <span style={{ marginRight: '0.3rem' }}>
+                      {node.type === 'PLANET' ? '🪐' : node.type === 'MAELSTROM' ? '🌀' : '✦'}
+                    </span>
+                    <span>{node.name}</span>
+                    <span style={{ fontSize: '0.6rem', color: '#555', marginLeft: '0.3rem' }}>
+                      ({node.factionOwner !== 'NONE' ? node.factionOwner : 'neutral'})
+                    </span>
+                  </div>
                   <button
                     style={styles.smallBtn}
                     onClick={() => handleMove(node.id)}
                   >
-                    MOVE
+                    JUMP
                   </button>
                 </div>
               ))}
             </div>
           </>
         )}
+
+        <button
+          style={{ ...styles.btn, marginTop: '0.75rem' }}
+          onClick={() => onSend({ type: 'END_ACTION_PHASE' })}
+        >
+          ⏩ END ACTION PHASE
+        </button>
       </div>
     );
   }
+
+  // ─── ENCOUNTER PHASE ─────────────────────────────────────────────────────────
 
   if (phase === 'ENCOUNTER' && isMyTurn) {
     return (
       <div>
         <h3 style={styles.heading}>ENCOUNTER PHASE</h3>
-        <p style={styles.text}>Location: {currentNode?.name ?? 'Unknown'}</p>
+        <div style={styles.infoRow}>
+          <span style={styles.label}>Location:</span>
+          <span style={styles.value}>{currentNode?.name ?? 'Unknown'}</span>
+        </div>
+        <p style={styles.subtext}>Choose your encounter action:</p>
         <div style={styles.choices}>
           <button
-            style={styles.btn}
+            style={{ ...styles.btn, ...styles.fightBtn }}
             onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'FIGHT_PATROL' } })}
           >
             ⚔️ FIGHT PATROL
+            <span style={styles.btnSubtext}>Engage hostile patrol ships</span>
           </button>
           <button
-            style={styles.btn}
+            style={{ ...styles.btn, ...styles.encounterBtn }}
             onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'SPACE_ENCOUNTER' } })}
           >
             🎲 SPACE ENCOUNTER
+            <span style={styles.btnSubtext}>Draw an encounter card</span>
           </button>
           <button
-            style={styles.btn}
+            style={{ ...styles.btn, ...styles.contactBtn }}
             onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'CONTACT' } })}
           >
             👤 CONTACT
+            <span style={styles.btnSubtext}>Reveal a contact token</span>
           </button>
         </div>
       </div>
     );
   }
 
+  // ─── COMBAT / WIN_CHECK / OTHER ──────────────────────────────────────────────
+
+  if (phase === 'COMBAT') {
+    return (
+      <div>
+        <h3 style={styles.heading}>COMBAT</h3>
+        <p style={styles.text}>Battle in progress...</p>
+        <p style={styles.subtext}>Check the cinematic overlay for results.</p>
+      </div>
+    );
+  }
+
+  if (phase === 'WIN_CHECK') {
+    return (
+      <div>
+        <h3 style={styles.heading}>CHECKING FAME</h3>
+        <p style={styles.text}>Your Fame: {myPlayer.fame}</p>
+        <p style={styles.subtext}>Advancing to next turn...</p>
+      </div>
+    );
+  }
+
+  // ─── DEFAULT — not my turn or waiting ────────────────────────────────────────
+
+  const activePlayer = players.get(activePlayerId);
   return (
     <div>
       <h3 style={styles.heading}>NAVIGATION</h3>
-      <p style={styles.text}>Location: {currentNode?.name ?? 'Unknown'}</p>
-      <p style={styles.subtext}>Waiting for {phase.replace(/_/g, ' ')}...</p>
+      <div style={styles.infoRow}>
+        <span style={styles.label}>Location:</span>
+        <span style={styles.value}>{currentNode?.name ?? 'Unknown'}</span>
+      </div>
+      <p style={styles.subtext}>
+        {activePlayer
+          ? `Waiting for ${activePlayer.displayName}'s ${phase.replace(/_/g, ' ')}...`
+          : `Waiting for ${phase.replace(/_/g, ' ')}...`
+        }
+      </p>
     </div>
   );
 }
@@ -125,12 +236,28 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     color: '#ffd700',
     marginBottom: '0.5rem',
+    letterSpacing: '0.05em',
   },
   subheading: {
     fontSize: '0.75rem',
     color: '#888',
     marginTop: '1rem',
     marginBottom: '0.5rem',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.1em',
+  },
+  infoRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '0.2rem',
+  },
+  label: {
+    fontSize: '0.7rem',
+    color: '#666',
+  },
+  value: {
+    fontSize: '0.75rem',
+    color: '#ccc',
   },
   text: {
     fontSize: '0.8rem',
@@ -142,11 +269,31 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#888',
     marginBottom: '0.75rem',
   },
+  hint: {
+    fontSize: '0.65rem',
+    color: '#666',
+    marginTop: '0.5rem',
+    fontStyle: 'italic',
+  },
   actCount: {
     fontSize: '0.8rem',
     color: '#00ff88',
     fontWeight: 'bold',
     marginBottom: '0.5rem',
+  },
+  defeatedBanner: {
+    background: 'rgba(255, 68, 68, 0.15)',
+    border: '1px solid rgba(255, 68, 68, 0.3)',
+    borderRadius: '4px',
+    padding: '0.4rem 0.6rem',
+    marginBottom: '0.75rem',
+    textAlign: 'center' as const,
+  },
+  defeatedText: {
+    color: '#ff6666',
+    fontSize: '0.75rem',
+    fontWeight: 'bold',
+    margin: 0,
   },
   choices: {
     display: 'flex',
@@ -163,13 +310,52 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: '0.75rem',
     fontFamily: "'Courier New', monospace",
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    transition: 'background 0.2s',
+  },
+  moveBtn: {
+    borderColor: 'rgba(0, 200, 255, 0.3)',
+    color: '#00ccff',
+    background: 'rgba(0, 200, 255, 0.08)',
+  },
+  recoverBtn: {
+    borderColor: 'rgba(255, 136, 68, 0.3)',
+    color: '#ff8844',
+    background: 'rgba(255, 136, 68, 0.08)',
+  },
+  creditsBtn: {
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    color: '#ffd700',
+    background: 'rgba(255, 215, 0, 0.08)',
+  },
+  fightBtn: {
+    borderColor: 'rgba(255, 68, 68, 0.3)',
+    color: '#ff4444',
+    background: 'rgba(255, 68, 68, 0.08)',
+  },
+  encounterBtn: {
+    borderColor: 'rgba(100, 100, 255, 0.3)',
+    color: '#8888ff',
+    background: 'rgba(100, 100, 255, 0.08)',
+  },
+  contactBtn: {
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    color: '#cccccc',
+    background: 'rgba(255, 255, 255, 0.06)',
+  },
+  btnSubtext: {
+    fontSize: '0.6rem',
+    opacity: 0.6,
+    marginTop: '0.15rem',
   },
   smallBtn: {
     padding: '0.2rem 0.5rem',
-    background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
+    background: 'rgba(0, 200, 255, 0.1)',
+    border: '1px solid rgba(0, 200, 255, 0.3)',
     borderRadius: '3px',
-    color: '#999',
+    color: '#00ccff',
     cursor: 'pointer',
     fontSize: '0.6rem',
     fontFamily: "'Courier New', monospace",

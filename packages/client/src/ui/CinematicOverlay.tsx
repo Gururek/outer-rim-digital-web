@@ -90,17 +90,45 @@ function formatEvent(type: string, payload: Record<string, unknown>): string {
       const contactId = Number(payload.contactId ?? 0);
       return `Making contact with Mysterious Stranger #${contactId}...`;
     }
+    case 'DICE_ROLLED': {
+      const rolls = payload.rolls as Array<{ faces: string[]; totalDamage: number }> | undefined;
+      if (!rolls || rolls.length < 2) return 'Dice rolled.';
+      const playerRoll = rolls[0];
+      const patrolRoll = rolls[1];
+      const playerFaces = playerRoll.faces.map(f => FACE_ICONS[f] ?? f).join(' ');
+      const patrolFaces = patrolRoll.faces.map(f => FACE_ICONS[f] ?? f).join(' ');
+      return `Your roll: [${playerFaces}] = ${playerRoll.totalDamage} dmg\nPatrol roll: [${patrolFaces}] = ${patrolRoll.totalDamage} dmg`;
+    }
+    case 'ENCOUNTER_CARD': {
+      const cardId = Number(payload.cardId ?? 0);
+      const planetId = String(payload.planetId ?? '');
+      const node = getNodeById(Number(planetId)) || { name: planetId };
+      return `Encounter card #${cardId} drawn near ${node.name ?? planetId}.`;
+    }
+    case 'LEVEL4_PATROL': {
+      const faction = String(payload.faction ?? '');
+      return `A massive ${faction} fleet blockades the system! Impossible odds — your ship is crippled.`;
+    }
     default:
       return JSON.stringify(payload).slice(0, 120);
   }
 }
+
+const FACE_ICONS: Record<string, string> = {
+  HIT: '⚡',
+  CRIT: '💥',
+  FOCUS: '◎',
+  BLANK: '○',
+};
 
 const EVENT_TITLES: Record<string, string> = {
   CARD_PURCHASED: 'ACQUISITION',
   SHOW_MOVEMENT: 'HYPERSPACE JUMP',
   FORCED_PATROL: 'PATROL INTERCEPT',
   COMBAT_RESULT: 'COMBAT REPORT',
+  DICE_ROLLED: 'DICE ROLL',
   ENCOUNTER_RESULT: 'ENCOUNTER',
+  ENCOUNTER_CARD: 'ENCOUNTER',
   SPACE_ENCOUNTER: 'SPACE ANOMALY',
   HYPERSPACE_TRAVEL: 'HYPERSPACE JUMP',
   CONTACT_REVEALED: 'FIRST CONTACT',
@@ -112,6 +140,8 @@ const EVENT_ICONS: Record<string, string> = {
   SHOW_MOVEMENT: '🚀',
   FORCED_PATROL: '⚠️',
   COMBAT_RESULT: '⚔️',
+  DICE_ROLLED: '🎲',
+  ENCOUNTER_CARD: '🃏',
   SPACE_ENCOUNTER: '🌌',
   HYPERSPACE_TRAVEL: '⏱',
   CONTACT_REVEALED: '👤',

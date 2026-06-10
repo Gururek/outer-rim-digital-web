@@ -1,30 +1,18 @@
-import { useCallback, useState } from 'react';
+import { useRef, useCallback, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Float, Text } from '@react-three/drei';
+import * as THREE from 'three';
 import type { MapNode } from '@outer-rim/shared';
-import { useGameStore } from '../../stores/gameStore';
-import { getConnectedNodes } from '@outer-rim/shared';
 
 interface Props {
   node: MapNode;
+  isReachable: boolean;
   onMoveConfirm?: (nodeId: number) => void;
 }
 
-export default function NavPointNode({ node, onMoveConfirm }: Props) {
+export default function NavPointNode({ node, isReachable, onMoveConfirm }: Props) {
+  const glowRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
-
-  const phase = useGameStore(s => s.phase);
-  const activePlayerId = useGameStore(s => s.activePlayerId);
-  const mySessionId = useGameStore(s => s.mySessionId);
-  const players = useGameStore(s => s.players);
-
-  const myPlayer = players.get(mySessionId);
-  const isMyTurn = activePlayerId === mySessionId;
-  const canMove = phase === 'ACTION' && isMyTurn && onMoveConfirm != null;
-
-  const isReachable = canMove && myPlayer ? (() => {
-    const connected = getConnectedNodes(myPlayer.currentNodeId);
-    return connected.some(n => n.id === node.id);
-  })() : false;
 
   const handleClick = useCallback(() => {
     if (isReachable && onMoveConfirm) {
@@ -34,12 +22,34 @@ export default function NavPointNode({ node, onMoveConfirm }: Props) {
 
   const isMaelstrom = node.type === 'MAELSTROM';
   const baseColor = isMaelstrom ? '#440044' : '#334455';
-  const ringColor = isReachable ? (hovered ? '#ffd700' : '#00ff88')
+  const ringColor = isReachable
+    ? (hovered ? '#ffd700' : '#00ff88')
     : isMaelstrom ? '#8800aa' : '#4488ff';
+
+  useFrame(() => {
+    if (glowRef.current) {
+      const scale = 1 + Math.sin(Date.now() * 0.004) * 0.06;
+      glowRef.current.scale.setScalar(isReachable ? scale : 1);
+      (glowRef.current.material as THREE.MeshBasicMaterial).opacity = isReachable
+        ? 0.25 + Math.sin(Date.now() * 0.005) * 0.1
+        : 0;
+    }
+  });
 
   return (
     <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.2}>
       <group position={node.position}>
+        {/* Reachable glow ring */}
+        <mesh ref={glowRef}>
+          <torusGeometry args={[0.85, 0.06, 16, 32]} />
+          <meshBasicMaterial
+            color="#00ff88"
+            transparent
+            opacity={0}
+            depthWrite={false}
+          />
+        </mesh>
+
         {/* Nav beacon — octahedron */}
         <mesh
           onClick={handleClick}

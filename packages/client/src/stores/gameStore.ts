@@ -44,6 +44,7 @@ interface GameStore {
   cinematic: CinematicState;
   gameOver: { winnerId: string; winnerName: string; winnerFame: number };
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+  moveHighlight: { hyperdrive: number; startNodeId: number } | null;
 
   // Actions
   applyStateUpdate: (state: any) => void;
@@ -101,6 +102,7 @@ export const useGameStore = create<GameStore>((set) => ({
   cinematic: { active: false, type: '', payload: {} },
   gameOver: { winnerId: '', winnerName: '', winnerFame: 0 },
   connectionStatus: 'disconnected',
+  moveHighlight: null,
 
   applyStateUpdate: (state) => {
     // Extract players from Colyseus MapSchema
@@ -148,16 +150,30 @@ export const useGameStore = create<GameStore>((set) => ({
 
   handleServerEvent: (event) => {
     if (event.event === 'PHASE_CHANGED') {
-      set({ phase: event.data.phase, activePlayerId: event.data.activePlayerId });
+      set({
+        phase: event.data.phase,
+        activePlayerId: event.data.activePlayerId,
+        moveHighlight: null, // Clear move highlight on phase change
+      });
     }
     if (event.event === 'CINEMATIC_TRIGGER') {
+      const payload = event.data.payload as Record<string, unknown>;
       set({
         cinematic: {
           active: true,
           type: event.data.type,
-          payload: event.data.payload,
+          payload,
         }
       });
+      // Capture SHOW_MOVEMENT hyperdrive for path highlighting
+      if (event.data.type === 'SHOW_MOVEMENT') {
+        set({
+          moveHighlight: {
+            hyperdrive: (payload.hyperdrive as number) ?? 4,
+            startNodeId: (payload.startNodeId as number) ?? -1,
+          }
+        });
+      }
     }
     if (event.event === 'COMBAT_RESULT') {
       // Show combat result via cinematic overlay
@@ -180,6 +196,29 @@ export const useGameStore = create<GameStore>((set) => ({
           winnerId,
           winnerName: winner?.displayName ?? 'Unknown',
           winnerFame,
+        }
+      });
+    }
+    if (event.event === 'DICE_ROLLED') {
+      // Show dice roll results via cinematic overlay
+      set({
+        cinematic: {
+          active: true,
+          type: 'DICE_ROLLED',
+          payload: event.data as Record<string, unknown>,
+        }
+      });
+    }
+    if (event.event === 'PATROL_MOVED') {
+      // Just log it — the state sync handles position updates
+      console.log('[gameStore] Patrol moved:', event.data);
+    }
+    if (event.event === 'ENCOUNTER_CARD') {
+      set({
+        cinematic: {
+          active: true,
+          type: 'ENCOUNTER_CARD',
+          payload: event.data as Record<string, unknown>,
         }
       });
     }
