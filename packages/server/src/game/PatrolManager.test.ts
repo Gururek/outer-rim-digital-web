@@ -148,4 +148,29 @@ describe('PatrolManager', () => {
         .toBe(patrolManager.getPatrolNodeId(faction));
     }
   });
+
+  it('moveOnePatrolTowardPlayers moves a single patrol', () => {
+    const beforeNode = patrolManager.getPatrolNodeId('IMPERIAL');
+    patrolManager.moveOnePatrolTowardPlayers('IMPERIAL');
+    const afterNode = patrolManager.getPatrolNodeId('IMPERIAL');
+    expect(afterNode).toBeGreaterThan(-1);
+    // Should move to a connected node (may be same if only one adj node, usually different)
+    const { MAP_NODES } = require('@outer-rim/shared');
+    const node = MAP_NODES.find((n: any) => n.id === beforeNode);
+    if (node) {
+      const connected = node.connectedNodeIds;
+      expect(connected.includes(afterNode) || afterNode === beforeNode).toBe(true);
+    }
+    expect(state.imperialPatrolNode).toBe(afterNode);
+  });
+
+  it('moveOnePatrolTowardPlayers does not affect other patrols', () => {
+    const huttBefore = patrolManager.getPatrolNodeId('HUTT');
+    const rebelBefore = patrolManager.getPatrolNodeId('REBEL');
+
+    patrolManager.moveOnePatrolTowardPlayers('IMPERIAL');
+
+    expect(patrolManager.getPatrolNodeId('HUTT')).toBe(huttBefore);
+    expect(patrolManager.getPatrolNodeId('REBEL')).toBe(rebelBefore);
+  });
 });

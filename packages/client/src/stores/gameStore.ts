@@ -200,14 +200,8 @@ export const useGameStore = create<GameStore>((set) => ({
       });
     }
     if (event.event === 'DICE_ROLLED') {
-      // Show dice roll results via cinematic overlay
-      set({
-        cinematic: {
-          active: true,
-          type: 'DICE_ROLLED',
-          payload: event.data as Record<string, unknown>,
-        }
-      });
+      // Log dice results but don't show overlay — COMBAT_RESULT handles the visual
+      console.log('[gameStore] Dice rolled:', event.data);
     }
     if (event.event === 'PATROL_MOVED') {
       // Just log it — the state sync handles position updates

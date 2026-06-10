@@ -2,7 +2,7 @@ import type { GameState } from '../rooms/schema/GameState.js';
 import type { DeckManager } from './DeckManager.js';
 import type { PatrolManager } from './PatrolManager.js';
 import { CombatResolver } from './CombatResolver.js';
-import { findPath } from '@outer-rim/shared';
+import { findPath, MAP_NODES, CHARACTERS, getShip } from '@outer-rim/shared';
 import type {
   GamePhase, PlanningChoice, EncounterChoice,
   FactionType, ServerEvent
@@ -17,7 +17,7 @@ export interface RoomBroadcaster {
 export class TurnMachine {
   private combatResolver: CombatResolver;
   private planningResolved = false;
-  private pendingPatrolMove = false;
+  private actionPhaseEntered = false; // Track first entry to ACTION per turn
 
   constructor(
     private state: GameState,
@@ -67,10 +67,15 @@ export class TurnMachine {
 
     const activeId = this.getActivePlayerId();
     
-    // Reset actions at start of ACTION phase
+    // Only reset actions on FIRST entry to ACTION (from PLANNING), not on re-entry from moves
     if (phase === 'ACTION') {
-      const activePs = this.state.players.get(activeId);
-      if (activePs) activePs.actionsRemaining = 2;
+      if (!this.actionPhaseEntered) {
+        this.actionPhaseEntered = true;
+        const activePs = this.state.players.get(activeId);
+        if (activePs) activePs.actionsRemaining = 2;
+      }
+    } else if (phase === 'PLANNING') {
+      this.actionPhaseEntered = false;
     }
     
     this.room.broadcastEvent({
@@ -187,7 +192,8 @@ export class TurnMachine {
         this.handleSpaceEncounter(sessionId);
         break;
       case 'CONTACT':
-        if (payload.targetId != null) this.handleContactEncounter(sessionId, payload.targetId);
+        // Accept with or without explicit targetId — auto-select if missing
+        this.handleContactEncounter(sessionId, payload.targetId);
         break;
     }
   }
@@ -226,11 +232,8 @@ export class TurnMachine {
       this.modifyRep(ps, faction, -1);
       this.patrolManager.eliminateAndSpawn(faction);
     } else {
-      this.pendingPatrolMove = true;
-      this.room.sendToClient(sessionId, {
-        event: 'CINEMATIC_TRIGGER',
-        data: { type: 'PROMPT_PATROL_MOVE', payload: { faction } }
-      });
+      // Auto-move patrol one step toward nearest player and continue
+      this.patrolManager.moveOnePatrolTowardPlayers(faction);
     }
 
     if (ps.shipDamage >= this.getShipMaxHull(sessionId)) {
@@ -255,24 +258,100 @@ export class TurnMachine {
       }
     });
 
-    if (!this.pendingPatrolMove) {
-      setTimeout(() => this.transitionTo('WIN_CHECK'), 4000);
-    }
+    setTimeout(() => this.transitionTo('WIN_CHECK'), 4000);
   }
 
   private handleSpaceEncounter(sessionId: string) {
     const ps = this.state.players.get(sessionId)!;
+    const node = MAP_NODES.find(n => n.id === ps.currentNodeId);
+    
+    // Randomized encounter outcomes
+    const roll = Math.random();
+    let outcome: string;
+    let creditsGain = 0;
+    let damage = 0;
+    let fameGain = 0;
+    
+    if (roll < 0.25) {
+      // Salvage: gain credits
+      creditsGain = 1000 + Math.floor(Math.random() * 3000);
+      outcome = `Salvage found! Gained ${creditsGain} credits from a derelict freighter.`;
+      ps.credits += creditsGain;
+    } else if (roll < 0.45) {
+      // Asteroid field: minor hull damage
+      damage = 1 + Math.floor(Math.random() * 2);
+      ps.shipDamage = Math.min(ps.shipDamage + damage, this.getShipMaxHull(sessionId));
+      outcome = `Asteroid field! Ship took ${damage} hull damage navigating the debris.`;
+    } else if (roll < 0.60) {
+      // Distress signal: gain fame for rescuing
+      fameGain = 1;
+      ps.fame += fameGain;
+      outcome = `Distress signal! You rescued a stranded freighter crew. +${fameGain} Fame.`;
+    } else if (roll < 0.80) {
+      // Smuggler cache: minor credits
+      creditsGain = 500 + Math.floor(Math.random() * 1500);
+      outcome = `Smuggler's cache located. +${creditsGain} credits in contraband.`;
+      ps.credits += creditsGain;
+    } else {
+      // Nothing found
+      outcome = `Scans complete — nothing of interest in this sector.`;
+    }
+    
     this.room.broadcastEvent({
       event: 'CINEMATIC_TRIGGER',
-      data: { type: 'SPACE_ENCOUNTER', payload: { sessionId, nodeId: ps.currentNodeId } }
+      data: {
+        type: 'SPACE_ENCOUNTER',
+        payload: {
+          sessionId,
+          nodeId: ps.currentNodeId,
+          nodeName: node?.name ?? 'Unknown',
+          outcome,
+          creditsGain,
+          damage,
+          fameGain,
+        }
+      }
     });
-    setTimeout(() => this.transitionTo('WIN_CHECK'), 3000);
+    
+    // Check if destroyed by asteroid
+    if (ps.shipDamage >= this.getShipMaxHull(sessionId)) {
+      this.applyDefeatPenalty(ps);
+      this.room.sendToClient(sessionId, {
+        event: 'CINEMATIC_TRIGGER',
+        data: { type: 'SHIP_DESTROYED', payload: { sessionId } }
+      });
+    }
+    
+    setTimeout(() => this.transitionTo('WIN_CHECK'), 4000);
   }
 
-  private handleContactEncounter(sessionId: string, contactId: number) {
+  private handleContactEncounter(sessionId: string, contactId?: number) {
+    const ps = this.state.players.get(sessionId)!;
+    const node = MAP_NODES.find(n => n.id === ps.currentNodeId);
+    
+    let resolvedContactId = contactId;
+    let contactClass: string | undefined;
+    
+    if (resolvedContactId == null && node) {
+      // Auto-select first available contact space at this node
+      if (node.contactSpaces.length > 0) {
+        const space = node.contactSpaces[0];
+        resolvedContactId = node.id * 100 + node.contactSpaces.indexOf(space) + 1;
+        contactClass = space.class;
+      } else {
+        // No contacts at this node — tell the player
+        this.room.sendToClient(sessionId, {
+          event: 'CINEMATIC_TRIGGER',
+          data: { type: 'NO_CONTACTS', payload: { nodeId: ps.currentNodeId, nodeName: node?.name ?? 'here' } }
+        });
+        setTimeout(() => this.transitionTo('WIN_CHECK'), 2000);
+        return;
+      }
+    }
+    
     this.room.broadcastEvent({
       event: 'CONTACT_REVEALED',
-      data: { contactId, dataBankCardNumber: contactId }
+      data: { contactId: resolvedContactId!, dataBankCardNumber: resolvedContactId! }
     });
     setTimeout(() => this.transitionTo('WIN_CHECK'), 3000);
   }
@@ -323,8 +402,9 @@ export class TurnMachine {
     ps: ReturnType<typeof this.state.players.get>
   ): boolean {
     if (!ps) return false;
-    // TODO: Compare against CharacterDefinition maxHealth
-    return ps.characterDamage >= 8; // Placeholder max
+    const character = CHARACTERS.find(c => c.id === ps.characterId);
+    const maxHealth = character?.maxHealth ?? 8;
+    return ps.characterDamage >= maxHealth;
   }
 
   private applyDefeatPenalty(
@@ -336,18 +416,24 @@ export class TurnMachine {
   private getEffectiveHyperdrive(sessionId: string): number {
     const ps = this.state.players.get(sessionId);
     if (!ps) return 1;
-    // TODO: sum mod bonuses from ps.modSlots
-    return 4; // Default
+    const ship = getShip(ps.shipId);
+    let hyperdrive = ship?.hyperdrive ?? 4;
+    // TODO: add mod bonuses from ps.modSlots
+    return hyperdrive;
   }
 
   private getShipCombatValue(sessionId: string): number {
     const ps = this.state.players.get(sessionId);
     if (!ps) return 1;
-    return 3; // Default — TODO: from ShipDefinition + mod bonuses
+    const ship = getShip(ps.shipId);
+    return ship?.shipCombatValue ?? 3;
   }
 
   private getShipMaxHull(sessionId: string): number {
-    return 6; // Default — TODO: from ShipDefinition + mod bonuses
+    const ps = this.state.players.get(sessionId);
+    if (!ps) return 1;
+    const ship = getShip(ps.shipId);
+    return ship?.maxHull ?? 6;
   }
 
   private modifyRep(

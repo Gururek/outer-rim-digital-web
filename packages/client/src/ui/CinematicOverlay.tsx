@@ -77,9 +77,18 @@ function formatEvent(type: string, payload: Record<string, unknown>): string {
       return desc || 'Encounter resolved.';
     }
     case 'SPACE_ENCOUNTER': {
+      const outcome = String(payload.outcome ?? '');
+      if (outcome) return outcome;
       const nodeId = Number(payload.nodeId ?? -1);
       const node = getNodeById(nodeId);
       return node ? `Anomaly detected near ${node.name}. Scanning for salvage...` : 'Space anomaly detected. Scanning...';
+    }
+    case 'NO_CONTACTS': {
+      const nodeName = String(payload.nodeName ?? 'here');
+      return `No contacts available at ${nodeName}. You drift on.`;
+    }
+    case 'SHIP_DESTROYED': {
+      return `Your ship has been destroyed! You drift helplessly through space until rescued...`;
     }
     case 'HYPERSPACE_TRAVEL': {
       const path = payload.path as number[] | undefined;
@@ -130,6 +139,8 @@ const EVENT_TITLES: Record<string, string> = {
   ENCOUNTER_RESULT: 'ENCOUNTER',
   ENCOUNTER_CARD: 'ENCOUNTER',
   SPACE_ENCOUNTER: 'SPACE ANOMALY',
+  SHIP_DESTROYED: 'SHIP LOST',
+  NO_CONTACTS: 'NO CONTACTS',
   HYPERSPACE_TRAVEL: 'HYPERSPACE JUMP',
   CONTACT_REVEALED: 'FIRST CONTACT',
   LEVEL4_PATROL: 'IMPOSSIBLE ODDS',
@@ -143,6 +154,8 @@ const EVENT_ICONS: Record<string, string> = {
   DICE_ROLLED: '🎲',
   ENCOUNTER_CARD: '🃏',
   SPACE_ENCOUNTER: '🌌',
+  SHIP_DESTROYED: '💥',
+  NO_CONTACTS: '🫥',
   HYPERSPACE_TRAVEL: '⏱',
   CONTACT_REVEALED: '👤',
   LEVEL4_PATROL: '💀',

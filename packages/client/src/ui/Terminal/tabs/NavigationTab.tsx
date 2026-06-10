@@ -154,6 +154,9 @@ export default function NavigationTab({ onSend }: Props) {
   // ─── ENCOUNTER PHASE ─────────────────────────────────────────────────────────
 
   if (phase === 'ENCOUNTER' && isMyTurn) {
+    const patrolNodes = useGameStore(s => s.patrolNodes);
+    const hasPatrolHere = Object.values(patrolNodes).includes(myPlayer.currentNodeId);
+    
     return (
       <div>
         <h3 style={styles.heading}>ENCOUNTER PHASE</h3>
@@ -163,19 +166,26 @@ export default function NavigationTab({ onSend }: Props) {
         </div>
         <p style={styles.subtext}>Choose your encounter action:</p>
         <div style={styles.choices}>
-          <button
-            style={{ ...styles.btn, ...styles.fightBtn }}
-            onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'FIGHT_PATROL' } })}
-          >
-            ⚔️ FIGHT PATROL
-            <span style={styles.btnSubtext}>Engage hostile patrol ships</span>
-          </button>
+          {hasPatrolHere ? (
+            <button
+              style={{ ...styles.btn, ...styles.fightBtn }}
+              onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'FIGHT_PATROL' } })}
+            >
+              ⚔️ FIGHT PATROL
+              <span style={styles.btnSubtext}>Engage hostile patrol ships</span>
+            </button>
+          ) : (
+            <div style={{ ...styles.btn, ...styles.fightBtn, ...styles.disabledBtn }}>
+              ⚔️ FIGHT PATROL
+              <span style={styles.btnSubtext}>No patrol at this location</span>
+            </div>
+          )}
           <button
             style={{ ...styles.btn, ...styles.encounterBtn }}
             onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'SPACE_ENCOUNTER' } })}
           >
             🎲 SPACE ENCOUNTER
-            <span style={styles.btnSubtext}>Draw an encounter card</span>
+            <span style={styles.btnSubtext}>Scan for salvage, anomalies, or distress signals</span>
           </button>
           <button
             style={{ ...styles.btn, ...styles.contactBtn }}
@@ -334,6 +344,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderColor: 'rgba(255, 68, 68, 0.3)',
     color: '#ff4444',
     background: 'rgba(255, 68, 68, 0.08)',
+  },
+  disabledBtn: {
+    opacity: 0.35,
+    cursor: 'not-allowed',
   },
   encounterBtn: {
     borderColor: 'rgba(100, 100, 255, 0.3)',

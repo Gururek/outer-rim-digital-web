@@ -185,7 +185,7 @@ describe('TurnMachine', () => {
 
     it('rejects non-active player choices', () => {
       const nonActiveId = state.turnOrder[1]; // Second player
-      turnMachine.handlePlanningChoice(nonActiveId, 'MOVE');
+      turnMachine.handlePlanningChoice(nonActiveId!, 'MOVE');
       expect(state.phase).toBe('PLANNING'); // Shouldn't change
     });
 
@@ -243,8 +243,33 @@ describe('TurnMachine', () => {
 
     it('rejects non-active player moves', () => {
       const nonActiveId = state.turnOrder[1];
-      turnMachine.handleConfirmMove(nonActiveId, 2);
+      turnMachine.handleConfirmMove(nonActiveId!, 2);
       expect(broadcaster.events.length).toBe(0);
+    });
+
+    it('actionsRemaining does NOT reset on re-entry to ACTION', () => {
+      const activeId = turnMachine.getActivePlayerId();
+      const ps = state.players.get(activeId)!;
+      const currentId = ps.currentNodeId;
+      const { getConnectedNodes } = require('@outer-rim/shared');
+      const connected = getConnectedNodes(currentId);
+      
+      if (connected.length > 0) {
+        ps.actionsRemaining = 2;
+        const destId = connected[0].id;
+        
+        // First move: decrements to 1
+        turnMachine.handleConfirmMove(activeId, destId);
+        expect(ps.actionsRemaining).toBe(1);
+        
+        // Second move: should go to 0
+        if (connected.length > 1) {
+          const destId2 = connected[1].id;
+          ps.currentNodeId = connected[0].id; // Simulate first move completing
+          turnMachine.handleConfirmMove(activeId, destId2);
+          expect(ps.actionsRemaining).toBe(0);
+        }
+      }
     });
   });
 

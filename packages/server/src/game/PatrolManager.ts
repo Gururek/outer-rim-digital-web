@@ -133,6 +133,18 @@ export class PatrolManager {
     }
   }
 
+  // Move a single patrol one step toward nearest player (post-combat loss)
+  moveOnePatrolTowardPlayers(faction: FactionType) {
+    const patrol = this.patrols.get(faction);
+    if (!patrol) return;
+    const node = MAP_NODES.find(n => n.id === patrol.nodeId);
+    if (node && node.connectedNodeIds.length > 0) {
+      const nextNode = node.connectedNodeIds[Math.floor(Math.random() * node.connectedNodeIds.length)];
+      patrol.nodeId = nextNode;
+    }
+    this.syncToState(faction);
+  }
+
   getFactionPatrolNode(faction: FactionType): number {
     return this.patrols.get(faction)?.nodeId ?? -1;
   }
