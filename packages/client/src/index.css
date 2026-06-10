@@ -1,0 +1,28 @@
+:root {
+  --faction-hutt: #d4a017;
+  --faction-syndicate: #8b0000;
+  --faction-imperial: #1a5276;
+  --faction-rebel: #2e7d32;
+  --hud-bg: rgba(0, 0, 0, 0.85);
+  --hud-border: rgba(255, 255, 255, 0.1);
+  --hud-text: #e0e0e0;
+  --hud-accent: #00bfff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Courier New', monospace;
+  background: #000;
+  color: var(--hud-text);
+  overflow: hidden;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
