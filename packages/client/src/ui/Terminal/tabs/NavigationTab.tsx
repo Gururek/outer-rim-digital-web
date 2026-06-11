@@ -12,6 +12,7 @@ export default function NavigationTab({ onSend }: Props) {
   const mySessionId = useGameStore(s => s.mySessionId);
   const players = useGameStore(s => s.players);
   const activePlayerId = useGameStore(s => s.activePlayerId);
+  const patrolNodes = useGameStore(s => s.patrolNodes);
 
   const myPlayer = players.get(mySessionId);
   if (!myPlayer) return <p style={styles.text}>Not connected.</p>;
@@ -154,7 +155,6 @@ export default function NavigationTab({ onSend }: Props) {
   // ─── ENCOUNTER PHASE ─────────────────────────────────────────────────────────
 
   if (phase === 'ENCOUNTER' && isMyTurn) {
-    const patrolNodes = useGameStore(s => s.patrolNodes);
     const hasPatrolHere = Object.values(patrolNodes).includes(myPlayer.currentNodeId);
     
     // Check if player has a job card matching current planet
