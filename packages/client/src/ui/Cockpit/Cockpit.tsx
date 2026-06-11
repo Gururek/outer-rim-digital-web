@@ -1,5 +1,6 @@
 import { useGameStore } from '../../stores/gameStore';
 import type { FactionType } from '@outer-rim/shared';
+import { getShip, CHARACTERS } from '@outer-rim/shared';
 
 export default function CockpitOverlay() {
   const phase = useGameStore(s => s.phase);
@@ -11,6 +12,11 @@ export default function CockpitOverlay() {
 
   const myPlayer = players.get(mySessionId);
   if (!myPlayer) return null;
+
+  const character = CHARACTERS.find(c => c.id === myPlayer.characterId);
+  const maxHealth = character?.maxHealth ?? 8;
+  const ship = getShip(myPlayer.shipId);
+  const maxHull = ship?.maxHull ?? 6;
 
   const isMyTurn = activePlayerId === mySessionId;
   const activePlayer = players.get(activePlayerId);
@@ -39,8 +45,8 @@ export default function CockpitOverlay() {
       {/* Bottom bar: HUD status */}
       <div style={styles.bottomBar}>
         <HUDStat label="CREDITS" value={`${myPlayer.credits} cr`} />
-        <HUDStat label="HULL" value={`${myPlayer.shipDamage}`} color="#ff4444" />
-        <HUDStat label="HEALTH" value={`${myPlayer.characterDamage}`} color="#ff8844" />
+        <HUDStat label="HULL" value={`${maxHull - (myPlayer.shipDamage)}/${maxHull}`} color={myPlayer.shipDamage > 0 ? '#ff4444' : '#00ffcc'} />
+        <HUDStat label="HEALTH" value={`${maxHealth - (myPlayer.characterDamage)}/${maxHealth}`} color={myPlayer.characterDamage > 0 ? '#ff8844' : '#00ffcc'} />
         <ReputationHUD rep={myPlayer.rep} />
       </div>
     </div>

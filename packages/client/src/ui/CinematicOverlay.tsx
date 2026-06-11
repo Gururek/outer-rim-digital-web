@@ -50,11 +50,6 @@ export default function CinematicOverlay({ onDismiss }: CinematicProps) {
 function formatEvent(type: string, payload: Record<string, unknown>): string {
   const store = useGameStore.getState();
   switch (type) {
-    case 'CARD_PURCHASED': {
-      const sessionId = String(payload.sessionId ?? '');
-      const cardId = Number(payload.cardId ?? 0);
-      return `${sessionId.slice(0, 6)} acquired card #${cardId}`;
-    }
     case 'SHOW_MOVEMENT': {
       const startId = Number(payload.startNodeId ?? -1);
       const startNode = getNodeById(startId);
@@ -105,6 +100,41 @@ function formatEvent(type: string, payload: Record<string, unknown>): string {
       const cardName = String(payload.cardName ?? 'cargo');
       const reward = Number(payload.reward ?? 0);
       return `Cargo delivered! ${cardName} — earned ${reward} credits.`;
+    }
+    case 'JOB_RESULT': {
+      const jobName = String(payload.jobName ?? 'Job');
+      const outcome = String(payload.outcome ?? '');
+      const reward = payload.reward as { credits: number; fame: number } | undefined;
+      const skillResults = payload.skillResults as Array<{ skill: string; passed: boolean }> | undefined;
+      let msg = `Job: ${jobName}\n`;
+      if (outcome === 'SUCCESS') {
+        msg += `✅ SUCCESS! +${reward?.credits ?? 0}cr +${reward?.fame ?? 0} fame`;
+      } else if (outcome === 'PARTIAL') {
+        msg += `⚠️ PARTIAL SUCCESS. +${Math.floor((reward?.credits ?? 0) / 2)}cr +${Math.floor((reward?.fame ?? 0) / 2)} fame`;
+      } else {
+        msg += `❌ FAILED. The job went wrong.`;
+      }
+      if (skillResults) {
+        msg += '\nSkills: ' + skillResults.map(r => `${r.skill} ${r.passed ? '✓' : '✗'}`).join(', ');
+      }
+      return msg;
+    }
+    case 'NO_JOB_HERE': {
+      const nodeName = String(payload.nodeName ?? 'here');
+      return `No outstanding jobs at ${nodeName}. Check your active contracts.`;
+    }
+    case 'BOUNTY_RESULT': {
+      const bountyName = String(payload.bountyName ?? 'Bounty');
+      const outcome = String(payload.outcome ?? '');
+      const playerRoll = payload.playerRoll as { totalDamage: number } | undefined;
+      const bountyRoll = payload.bountyRoll as { totalDamage: number } | undefined;
+      if (outcome === 'ELIMINATED') {
+        return `Bounty: ${bountyName}\n✅ ELIMINATED! (You: ${playerRoll?.totalDamage ?? 0} dmg vs Target: ${bountyRoll?.totalDamage ?? 0} dmg)`;
+      }
+      return `Bounty: ${bountyName}\n❌ FAILED! The target escaped. (You: ${playerRoll?.totalDamage ?? 0} dmg vs Target: ${bountyRoll?.totalDamage ?? 0} dmg)`;
+    }
+    case 'NO_BOUNTIES': {
+      return `No active bounty contracts. Visit the market to pick up a bounty puck.`;
     }
     case 'CARD_PURCHASED': {
       const sessionId = String(payload.sessionId ?? '');
@@ -160,8 +190,12 @@ const EVENT_TITLES: Record<string, string> = {
   HYPERSPACE_TRAVEL: 'HYPERSPACE JUMP',
   CONTACT_REVEALED: 'FIRST CONTACT',
   LEVEL4_PATROL: 'IMPOSSIBLE ODDS',
+  JOB_RESULT: 'JOB COMPLETE',
+  NO_JOB_HERE: 'NO JOBS',
+  CARGO_DELIVERED: 'DELIVERY COMPLETE',
+  BOUNTY_RESULT: 'BOUNTY HUNT',
+  NO_BOUNTIES: 'NO BOUNTIES',
 };
-
 const EVENT_ICONS: Record<string, string> = {
   CARD_PURCHASED: '📦',
   SHOW_MOVEMENT: '🚀',
@@ -175,6 +209,11 @@ const EVENT_ICONS: Record<string, string> = {
   HYPERSPACE_TRAVEL: '⏱',
   CONTACT_REVEALED: '👤',
   LEVEL4_PATROL: '💀',
+  JOB_RESULT: '📋',
+  NO_JOB_HERE: '📭',
+  CARGO_DELIVERED: '📦',
+  BOUNTY_RESULT: '💀',
+  NO_BOUNTIES: '🔍',
 };
 
 const styles: Record<string, React.CSSProperties> = {

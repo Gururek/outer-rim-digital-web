@@ -1,7 +1,7 @@
 import { useGameStore } from '../../../stores/gameStore';
 import { CHARACTERS } from '@outer-rim/shared';
 import type { ClientMessage, PlanningChoice } from '@outer-rim/shared';
-import { MAP_NODES, getNodeById, getConnectedNodes } from '@outer-rim/shared';
+import { MAP_NODES, getNodeById, getConnectedNodes, MARKET_CARDS } from '@outer-rim/shared';
 
 interface Props {
   onSend: (msg: ClientMessage) => void;
@@ -157,6 +157,15 @@ export default function NavigationTab({ onSend }: Props) {
     const patrolNodes = useGameStore(s => s.patrolNodes);
     const hasPatrolHere = Object.values(patrolNodes).includes(myPlayer.currentNodeId);
     
+    // Check if player has a job card matching current planet
+    const currentPlanet = MAP_NODES.find(n => n.id === myPlayer.currentNodeId);
+    const planetId = currentPlanet?.planetId ?? '';
+    const hasJobHere = myPlayer.jobBountySlots.some(cardId => {
+      const card = MARKET_CARDS.find(c => c.id === cardId);
+      return card && card.deckType === 'JOB' && 'destinationPlanetId' in card && 
+        (card as any).destinationPlanetId === planetId;
+    });
+    
     return (
       <div>
         <h3 style={styles.heading}>ENCOUNTER PHASE</h3>
@@ -187,6 +196,37 @@ export default function NavigationTab({ onSend }: Props) {
             🎲 SPACE ENCOUNTER
             <span style={styles.btnSubtext}>Scan for salvage, anomalies, or distress signals</span>
           </button>
+          {hasJobHere ? (
+            <button
+              style={{ ...styles.btn, ...styles.jobBtn }}
+              onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'ATTEMPT_JOB' } })}
+            >
+              📋 ATTEMPT JOB
+              <span style={styles.btnSubtext}>Complete a job at this planet</span>
+            </button>
+          ) : (
+            <div style={{ ...styles.btn, ...styles.jobBtn, ...styles.disabledBtn }}>
+              📋 ATTEMPT JOB
+              <span style={styles.btnSubtext}>No job for this planet</span>
+            </div>
+          )}
+          {myPlayer.jobBountySlots.some(cardId => {
+            const card = MARKET_CARDS.find(c => c.id === cardId);
+            return card && card.deckType === 'BOUNTY';
+          }) ? (
+            <button
+              style={{ ...styles.btn, ...styles.bountyBtn }}
+              onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'ATTEMPT_BOUNTY' } })}
+            >
+              💀 HUNT BOUNTY
+              <span style={styles.btnSubtext}>Track down and engage a bounty target</span>
+            </button>
+          ) : (
+            <div style={{ ...styles.btn, ...styles.bountyBtn, ...styles.disabledBtn }}>
+              💀 HUNT BOUNTY
+              <span style={styles.btnSubtext}>No active bounties</span>
+            </div>
+          )}
           <button
             style={{ ...styles.btn, ...styles.contactBtn }}
             onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'CONTACT' } })}
@@ -353,6 +393,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderColor: 'rgba(100, 100, 255, 0.3)',
     color: '#8888ff',
     background: 'rgba(100, 100, 255, 0.08)',
+  },
+  jobBtn: {
+    borderColor: 'rgba(0, 255, 200, 0.3)',
+    color: '#00ffcc',
+    background: 'rgba(0, 255, 200, 0.08)',
+  },
+  bountyBtn: {
+    borderColor: 'rgba(255, 100, 50, 0.3)',
+    color: '#ff6432',
+    background: 'rgba(255, 100, 50, 0.08)',
   },
   contactBtn: {
     borderColor: 'rgba(255, 255, 255, 0.3)',

@@ -200,12 +200,10 @@ export const useGameStore = create<GameStore>((set) => ({
       });
     }
     if (event.event === 'DICE_ROLLED') {
-      // Log dice results but don't show overlay — COMBAT_RESULT handles the visual
-      console.log('[gameStore] Dice rolled:', event.data);
+      // Dice results processed by COMBAT_RESULT handler
     }
     if (event.event === 'PATROL_MOVED') {
-      // Just log it — the state sync handles position updates
-      console.log('[gameStore] Patrol moved:', event.data);
+      // State sync handles patrol position updates
     }
     if (event.event === 'ENCOUNTER_CARD') {
       set({

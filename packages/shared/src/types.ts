@@ -15,7 +15,7 @@ export type GamePhase =
 
 // ─── TURN CHOICES ─────────────────────────────────────────────────────────────
 export type PlanningChoice = 'MOVE' | 'RECOVER' | 'GAIN_CREDITS';
-export type EncounterChoice = 'FIGHT_PATROL' | 'SPACE_ENCOUNTER' | 'CONTACT' | 'CARD_ABILITY';
+export type EncounterChoice = 'FIGHT_PATROL' | 'SPACE_ENCOUNTER' | 'CONTACT' | 'ATTEMPT_JOB' | 'ATTEMPT_BOUNTY' | 'CARD_ABILITY';
 
 // ─── FACTIONS ─────────────────────────────────────────────────────────────────
 export type FactionType = 'HUTT' | 'SYNDICATE' | 'IMPERIAL' | 'REBEL' | 'NONE';

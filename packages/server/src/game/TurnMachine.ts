@@ -5,7 +5,7 @@ import { CombatResolver } from './CombatResolver.js';
 import { findPath, MAP_NODES, CHARACTERS, getShip, getRandomDatabankCard, getDatabankCard, MARKET_CARDS } from '@outer-rim/shared';
 import type {
   GamePhase, PlanningChoice, EncounterChoice,
-  FactionType, ServerEvent
+  FactionType, ServerEvent, BountyCard
 } from '@outer-rim/shared';
 import { CREDITS_FROM_RESTING, DEFEAT_CREDIT_PENALTY } from '@outer-rim/shared';
 
@@ -195,6 +195,12 @@ export class TurnMachine {
         // Accept with or without explicit targetId — auto-select if missing
         this.handleContactEncounter(sessionId, payload.targetId);
         break;
+      case 'ATTEMPT_JOB':
+        this.handleJobAttempt(sessionId);
+        break;
+      case 'ATTEMPT_BOUNTY':
+        this.handleBountyHunt(sessionId);
+        break;
     }
   }
 
@@ -369,6 +375,222 @@ export class TurnMachine {
       data: { contactId: resolvedContactId, dataBankCardNumber: resolvedContactId }
     });
     setTimeout(() => this.transitionTo('WIN_CHECK'), 3000);
+  }
+
+  private handleJobAttempt(sessionId: string) {
+    const ps = this.state.players.get(sessionId)!;
+    
+    // Find job cards in player's inventory that match current planet
+    const currentPlanet = MAP_NODES.find(n => n.id === ps.currentNodeId);
+    const planetId = currentPlanet?.planetId ?? '';
+    
+    const matchingJobs: { slotIndex: number; card: any }[] = [];
+    const slots = Array.from(ps.jobBountySlots);
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
+      if (!slot || !slot.isOccupied) continue;
+      const card = MARKET_CARDS.find(c => c.id === slot.cardDefinitionId);
+      if (card && card.deckType === 'JOB' && 'destinationPlanetId' in card) {
+        const jobCard = card as any;
+        if (jobCard.destinationPlanetId === planetId) {
+          matchingJobs.push({ slotIndex: i, card: jobCard });
+        }
+      }
+    }
+
+    if (matchingJobs.length === 0) {
+      this.room.sendToClient(sessionId, {
+        event: 'CINEMATIC_TRIGGER',
+        data: { type: 'NO_JOB_HERE', payload: { nodeName: currentPlanet?.name ?? 'here' } }
+      });
+      setTimeout(() => this.transitionTo('WIN_CHECK'), 2000);
+      return;
+    }
+
+    // Take the first matching job
+    const job = matchingJobs[0];
+    const jobCard = job.card;
+    const skillsRequired: string[] = jobCard.skillsRequired ?? [];
+    const skillsCritical: string[] = jobCard.skillsCritical ?? [];
+    const allSkills = [...new Set([...skillsRequired, ...skillsCritical])];
+
+    // Count player's effective skills (character + gear bonuses)
+    let passedAll = true;
+    const skillResults: { skill: string; required: boolean; critical: boolean; passed: boolean }[] = [];
+
+    const character = CHARACTERS.find(c => c.id === ps.characterId);
+    for (const skill of allSkills) {
+      const isCritical = skillsCritical.includes(skill);
+      const isRequired = skillsRequired.includes(skill);
+      
+      // Base skill: character has this skill
+      let skillCount = character?.skills.includes(skill as any) ? 1 : 0;
+      
+      // Gear bonuses
+      for (const slot of ps.gearSlots) {
+        if (slot.isOccupied) {
+          const gearCard = MARKET_CARDS.find(c => c.id === slot.cardDefinitionId) as any;
+          if (gearCard?.skillBonus) {
+            for (const bonus of gearCard.skillBonus) {
+              if (bonus.skill === skill) skillCount += bonus.count;
+            }
+          }
+        }
+      }
+
+      // Skill test: 0 = unskilled (only crit passes), 1 = skilled (hit or crit), 2+ = highly skilled (any non-blank)
+      const roll = CombatResolver.rollDice(2);
+      const passed =
+        skillCount === 0 ? roll.critCount >= 1 :
+        skillCount === 1 ? roll.critCount >= 1 || roll.hitCount >= 1 :
+        /* 2+ */           roll.critCount >= 1 || roll.hitCount >= 1 || roll.focusCount >= 1;
+
+      if (!passed) passedAll = false;
+      skillResults.push({ skill, required: isRequired, critical: isCritical, passed });
+    }
+
+    // Determine outcome
+    const criticalFailed = skillResults.some(r => r.critical && !r.passed);
+    const reward = jobCard.reward ?? { credits: 0, fame: 0 };
+    const advance = jobCard.creditAdvance ?? 0;
+    
+    let outcome: string;
+    if (passedAll) {
+      // Full success
+      ps.credits += reward.credits;
+      ps.fame += reward.fame;
+      outcome = 'SUCCESS';
+    } else if (!criticalFailed) {
+      // Partial success — half reward
+      ps.credits += Math.floor(reward.credits / 2);
+      ps.fame += Math.floor(reward.fame / 2);
+      outcome = 'PARTIAL';
+    } else {
+      // Failure — lose the advance (already paid on buy? no — advance is paid on acceptance)
+      // Actually per rules: advance is paid when you buy the job. On failure, lose advance value.
+      ps.credits = Math.max(0, ps.credits - advance);
+      outcome = 'FAILURE';
+    }
+
+    // Remove job from inventory
+    const jobSlot = ps.jobBountySlots[job.slotIndex];
+    if (jobSlot) {
+      jobSlot.isOccupied = false;
+      jobSlot.cardDefinitionId = -1;
+    }
+
+    this.room.broadcastEvent({
+      event: 'CINEMATIC_TRIGGER',
+      data: {
+        type: 'JOB_RESULT',
+        payload: {
+          sessionId,
+          jobName: jobCard.name,
+          outcome,
+          skillResults,
+          reward: { credits: reward.credits, fame: reward.fame },
+        }
+      }
+    });
+
+    setTimeout(() => this.transitionTo('WIN_CHECK'), 5000);
+  }
+
+  private handleBountyHunt(sessionId: string) {
+    const ps = this.state.players.get(sessionId)!;
+    
+    // Find bounty cards in player's inventory
+    const matchingBounties: { slotIndex: number; card: BountyCard }[] = [];
+    const slots = Array.from(ps.jobBountySlots);
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
+      if (!slot || !slot.isOccupied) continue;
+      const card = MARKET_CARDS.find(c => c.id === slot.cardDefinitionId);
+      if (card && card.deckType === 'BOUNTY' && 'contactCombatValue' in card) {
+        matchingBounties.push({ slotIndex: i, card: card as BountyCard });
+      }
+    }
+
+    if (matchingBounties.length === 0) {
+      this.room.sendToClient(sessionId, {
+        event: 'CINEMATIC_TRIGGER',
+        data: { type: 'NO_BOUNTIES', payload: {} }
+      });
+      setTimeout(() => this.transitionTo('WIN_CHECK'), 2000);
+      return;
+    }
+
+    // Take the first bounty
+    const bounty = matchingBounties[0];
+    const bountyCard = bounty.card;
+
+    // Get player's ground combat value
+    const character = CHARACTERS.find(c => c.id === ps.characterId);
+    let playerCombat = character?.groundCombatValue ?? 1;
+    
+    // Add gear bonuses for ground combat
+    for (const slot of ps.gearSlots) {
+      if (slot.isOccupied) {
+        const gearCard = MARKET_CARDS.find(c => c.id === slot.cardDefinitionId) as any;
+        if (gearCard?.groundCombatBonus) {
+          playerCombat += gearCard.groundCombatBonus;
+        }
+      }
+    }
+
+    // Combat: both sides roll dice
+    const playerRoll = CombatResolver.rollDice(playerCombat);
+    const bountyRoll = CombatResolver.rollDice(bountyCard.contactCombatValue);
+
+    const playerWins = playerRoll.totalDamage >= bountyRoll.totalDamage;
+
+    // Damage the player
+    if (!playerWins) {
+      ps.characterDamage = Math.min(
+        ps.characterDamage + bountyRoll.totalDamage,
+        character?.maxHealth ?? 8
+      );
+    }
+
+    let outcome: 'ELIMINATED' | 'CAPTURED' | 'FAILED';
+    if (playerWins) {
+      // Player wins — collect reward (simplified: always eliminate for now)
+      ps.credits += bountyCard.eliminationReward.credits;
+      ps.fame += bountyCard.eliminationReward.fame;
+      this.modifyRep(ps, bountyCard.issuingFaction, 1);
+      outcome = 'ELIMINATED';
+    } else {
+      outcome = 'FAILED';
+    }
+
+    // Remove bounty from inventory
+    const bountySlot = ps.jobBountySlots[bounty.slotIndex];
+    if (bountySlot) {
+      bountySlot.isOccupied = false;
+      bountySlot.cardDefinitionId = -1;
+    }
+
+    // Check if player was defeated
+    if (ps.characterDamage >= (character?.maxHealth ?? 8)) {
+      this.applyDefeatPenalty(ps);
+    }
+
+    this.room.broadcastEvent({
+      event: 'CINEMATIC_TRIGGER',
+      data: {
+        type: 'BOUNTY_RESULT',
+        payload: {
+          sessionId,
+          bountyName: bountyCard.targetName ?? bountyCard.name,
+          outcome,
+          playerRoll: { faces: playerRoll.faces, totalDamage: playerRoll.totalDamage },
+          bountyRoll: { faces: bountyRoll.faces, totalDamage: bountyRoll.totalDamage },
+          reward: bountyCard.eliminationReward,
+        }
+      }
+    });
+
+    setTimeout(() => this.transitionTo('WIN_CHECK'), 5000);
   }
 
   completeEncounter() {

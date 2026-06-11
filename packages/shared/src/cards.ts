@@ -36,27 +36,62 @@ export const MARKET_CARDS: CardDefinition[] = [
   {
     id: 10, name: 'Wanted: Zerek Besh', deckType: 'BOUNTY', buyCost: 0, sellValue: 0,
     effectDescription: 'Eliminate: 3000cr + 1 Fame. Capture: 2000cr + 2 Fame.',
-    flavorText: 'A disgraced Imperial officer on the run.'
+    flavorText: 'A disgraced Imperial officer on the run.',
+    targetName: 'Zerek Besh',
+    targetContactClass: 'WHITE' as const,
+    contactCombatValue: 3,
+    combatType: 'GROUND' as const,
+    eliminationReward: { credits: 3000, fame: 1 },
+    captureReward: { credits: 2000, fame: 2, planet: 'coruscant' },
+    issuingFaction: 'IMPERIAL' as const
   } as BountyCard,
   {
     id: 11, name: 'Wanted: Kaevee', deckType: 'BOUNTY', buyCost: 0, sellValue: 0,
     effectDescription: 'Eliminate: 4000cr + 1 Fame. Capture: 3000cr + 3 Fame.',
-    flavorText: 'Force-sensitive fugitive last seen near Tatooine.'
+    flavorText: 'Force-sensitive fugitive last seen near Tatooine.',
+    targetName: 'Kaevee',
+    targetContactClass: 'GREEN' as const,
+    contactCombatValue: 4,
+    combatType: 'GROUND' as const,
+    eliminationReward: { credits: 4000, fame: 1 },
+    captureReward: { credits: 3000, fame: 3, planet: 'tatooine' },
+    issuingFaction: 'REBEL' as const
   } as BountyCard,
   {
     id: 12, name: 'Wanted: Dengar', deckType: 'BOUNTY', buyCost: 0, sellValue: 0,
     effectDescription: 'Eliminate: 5000cr + 2 Fame. Capture: 4000cr + 3 Fame.',
-    flavorText: 'Corellian bounty hunter gone rogue.'
+    flavorText: 'Corellian bounty hunter gone rogue.',
+    targetName: 'Dengar',
+    targetContactClass: 'YELLOW' as const,
+    contactCombatValue: 5,
+    combatType: 'GROUND' as const,
+    eliminationReward: { credits: 5000, fame: 2 },
+    captureReward: { credits: 4000, fame: 3, planet: 'corellia' },
+    issuingFaction: 'SYNDICATE' as const
   } as BountyCard,
   {
     id: 13, name: 'Wanted: Rako Hardeen', deckType: 'BOUNTY', buyCost: 0, sellValue: 0,
     effectDescription: 'Eliminate: 3000cr + 1 Fame. Capture: 2500cr + 2 Fame.',
-    flavorText: 'Sniper for hire, wanted by the Syndicate.'
+    flavorText: 'Sniper for hire, wanted by the Syndicate.',
+    targetName: 'Rako Hardeen',
+    targetContactClass: 'GREEN' as const,
+    contactCombatValue: 4,
+    combatType: 'GROUND' as const,
+    eliminationReward: { credits: 3000, fame: 1 },
+    captureReward: { credits: 2500, fame: 2, planet: 'nal_hutta' },
+    issuingFaction: 'SYNDICATE' as const
   } as BountyCard,
   {
     id: 14, name: 'Wanted: 4-LOM', deckType: 'BOUNTY', buyCost: 0, sellValue: 0,
     effectDescription: 'Eliminate: 3500cr + 1 Fame. Capture: 3000cr + 2 Fame.',
-    flavorText: 'Protocol droid turned bounty hunter.'
+    flavorText: 'Protocol droid turned bounty hunter.',
+    targetName: '4-LOM',
+    targetContactClass: 'YELLOW' as const,
+    contactCombatValue: 5,
+    combatType: 'GROUND' as const,
+    eliminationReward: { credits: 3500, fame: 1 },
+    captureReward: { credits: 3000, fame: 2, planet: 'tatooine' },
+    issuingFaction: 'HUTT' as const
   } as BountyCard,
 
   // ── GEAR cards (isGear: true) ────────────────────────────────────────────
