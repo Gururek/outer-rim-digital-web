@@ -1,6 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { Howl } from 'howler';
 import { useGameStore } from '../stores/gameStore';
+import { useSettingsStore } from '../stores/settingsStore';
+
+// Get current volumes from settings store (reactive via getter to avoid hook hell)
+function getVolumes() {
+  const s = useSettingsStore.getState();
+  return { sfx: s.sfxVolume, music: s.musicVolume };
+}
 
 // ─── Web Audio synthesis (no asset files required) ───────────────────────────
 let _ctx: AudioContext | null = null;
@@ -19,6 +26,8 @@ function synth(opts: {
   delay?: number;
 }) {
   const { freq, freq2, dur, type = 'sine', vol = 0.12, attack = 0.01, delay = 0 } = opts;
+  const sfxVol = getVolumes().sfx;
+  if (sfxVol <= 0) return;
   const ctx = getCtx();
   const t = ctx.currentTime + delay;
   const osc = ctx.createOscillator();
@@ -27,7 +36,7 @@ function synth(opts: {
   osc.frequency.setValueAtTime(freq, t);
   if (freq2 != null) osc.frequency.linearRampToValueAtTime(freq2, t + dur);
   gain.gain.setValueAtTime(0.001, t);
-  gain.gain.linearRampToValueAtTime(vol, t + attack);
+  gain.gain.linearRampToValueAtTime(vol * sfxVol, t + attack);
   gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
   osc.connect(gain);
   gain.connect(ctx.destination);
@@ -114,7 +123,7 @@ function getFactionHowl(key: string): Howl {
     _howls[key] = new Howl({
       src: [FACTION_MUSIC_URLS[key] ?? '/audio/music_menu.mp3'],
       loop: true,
-      volume: 0.18,
+      volume: getVolumes().music,
       html5: true,
       onloaderror: () => { /* silently ignore missing audio files */ },
     });
@@ -125,12 +134,14 @@ function getFactionHowl(key: string): Howl {
 let _currentTrack: string | null = null;
 function crossfadeTo(key: string) {
   if (_currentTrack === key) return;
-  if (_currentTrack) getFactionHowl(_currentTrack).fade(0.18, 0, 1000);
+  const musicVol = getVolumes().music;
+  if (musicVol <= 0) return;
+  if (_currentTrack) getFactionHowl(_currentTrack).fade(musicVol, 0, 1000);
   _currentTrack = key;
   const h = getFactionHowl(key);
   h.volume(0);
   h.play();
-  h.fade(0, 0.18, 1200);
+  h.fade(0, musicVol, 1200);
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

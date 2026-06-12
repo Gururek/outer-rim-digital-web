@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CHARACTERS, SHIPS } from '@outer-rim/shared';
+import SettingsPanel from './SettingsPanel';
 
 interface Props {
   onConnect: (options?: Record<string, unknown>) => Promise<string | undefined>;
@@ -13,6 +14,7 @@ export default function LobbyScreen({ onConnect, onJoin }: Props) {
   const [shipId,      setShipId]      = useState(SHIPS[0].id);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState('');
+  const [showSettings, setShowSettings] = useState(false);
 
   const selectedChar = CHARACTERS.find(c => c.id === charId);
   const selectedShip = SHIPS.find(s => s.id === shipId);
@@ -38,6 +40,12 @@ export default function LobbyScreen({ onConnect, onJoin }: Props) {
       <div className="ck-scan" />
 
       <div style={S.card}>
+        <button
+          onClick={() => setShowSettings(true)}
+          title="Settings"
+          style={S.gearBtn}
+        >⚙</button>
+
         {/* Title */}
         <div style={S.titleBlock}>
           <div style={S.starWars}>STAR WARS</div>
@@ -113,6 +121,8 @@ export default function LobbyScreen({ onConnect, onJoin }: Props) {
           </button>
         </div>
       </div>
+
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
@@ -137,14 +147,33 @@ const S: Record<string, React.CSSProperties> = {
     fontFamily: "'Share Tech Mono', monospace",
   },
   card: {
+    position: 'relative',
     background: 'var(--ck-panel)',
     border: '1px solid var(--ck-border)',
     borderRadius: 6,
     padding: '2rem',
     width: 400,
     maxWidth: '92vw',
-    position: 'relative',
     zIndex: 1,
+  },
+  gearBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    background: 'none',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 3,
+    color: 'var(--ck-dim)',
+    fontSize: 16,
+    width: 30,
+    height: 30,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    lineHeight: 1,
+    zIndex: 2,
   },
   titleBlock: {
     textAlign: 'center',

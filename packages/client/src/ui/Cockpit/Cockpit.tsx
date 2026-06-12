@@ -2,6 +2,8 @@ import { MAP_NODES } from '@outer-rim/shared';
 import { getCharacter, getShip } from '@outer-rim/shared';
 import { useGameStore } from '../../stores/gameStore';
 import type { FactionType, GamePhase } from '@outer-rim/shared';
+import { useState } from 'react';
+import SettingsPanel from '../SettingsPanel';
 
 // ─── Cockpit overlay: header bar + galaxy minimap + systems panel ─────────────
 
@@ -13,6 +15,7 @@ export default function CockpitOverlay() {
   const myId        = useGameStore(s => s.mySessionId);
   const players     = useGameStore(s => s.players);
   const patrolNodes = useGameStore(s => s.patrolNodes);
+  const [showSettings, setShowSettings] = useState(false);
 
   const me = players.get(myId);
   if (!me) return null;
@@ -73,6 +76,7 @@ export default function CockpitOverlay() {
               <div style={{ ...S.fameBarFill, width: `${Math.min(100, (me.fame / fameReq) * 100)}%` }} />
             </div>
           </div>
+          <SettingsButton onClick={() => setShowSettings(true)} />
         </div>
       </div>
 
@@ -130,6 +134,8 @@ export default function CockpitOverlay() {
           <SegmentTrack current={maxHealth - me.characterDamage} max={maxHealth} color="var(--ck-green)" />
         </div>
       </div>
+
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
@@ -265,6 +271,35 @@ function SegmentTrack({ current, max, color }: { current: number; max: number; c
         }} />
       ))}
     </div>
+  );
+}
+
+// ─── Settings button ──────────────────────────────────────────────────────────
+
+function SettingsButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Settings"
+      style={{
+        background: 'none',
+        border: '1px solid var(--ck-border)',
+        borderRadius: 3,
+        color: 'var(--ck-dim)',
+        fontSize: 14,
+        width: 28,
+        height: 28,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        lineHeight: 1,
+        flexShrink: 0,
+      }}
+    >
+      ⚙
+    </button>
   );
 }
 

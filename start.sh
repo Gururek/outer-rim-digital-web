@@ -19,12 +19,13 @@ echo "  Share the client URL with players on your LAN."
 echo "  Press Ctrl+C to stop everything."
 echo ""
 
-# ── Start server ─────────────────────────────────────────────────────────────
-packages/server/node_modules/.bin/tsx packages/server/src/index.ts &
+# ── Build + start server (tsc for decorator support; tsx/esbuild breaks them) ──
+packages/server/node_modules/.bin/tsc -p packages/server/tsconfig.json
+node packages/server/dist/index.js &
 SERVER_PID=$!
 
 # ── Start client ─────────────────────────────────────────────────────────────
-packages/client/node_modules/.bin/vite --host &
+(cd packages/client && node_modules/.bin/vite --host) &
 CLIENT_PID=$!
 
 # ── Cleanup on exit ───────────────────────────────────────────────────────────

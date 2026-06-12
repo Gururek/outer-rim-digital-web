@@ -10,15 +10,36 @@ import HyperspaceEffect from './scenes/fx/HyperspaceEffect';
 import DiceRoll3D from './scenes/fx/DiceRoll3D';
 import ContactRevealOverlay from './ui/ContactRevealOverlay';
 import { useAudio } from './hooks/useAudio';
+import { useSettingsStore } from './stores/settingsStore';
+import { useLayoutEffect } from 'react';
 
 export default function App() {
   const phase            = useGameStore(s => s.phase);
+  const uiScale          = useSettingsStore(s => s.uiScale);
   const connectionStatus = useGameStore(s => s.connectionStatus);
   const playerCount      = useGameStore(s => s.playerCount);
   const dismissCinematic = useGameStore(s => s.dismissCinematic);
   const setConnectionStatus = useGameStore(s => s.setConnectionStatus);
   const { connect, send, roomId } = useGameRoom();
   useAudio();
+
+  // Apply UI scale via CSS zoom on #root with inverse dimensions.
+  // At scale s: root layout = 100/s vw/vh, zoom = s → visual = exactly 100vw×100vh.
+  // html overflow:hidden clips any overshoot; body/root overflow:visible avoids
+  // double-clipping the inverse-dimension layout at s < 1.
+  useLayoutEffect(() => {
+    const s = uiScale;
+    const root = document.getElementById('root');
+    if (!root) return;
+    (root.style as any).zoom = String(s);
+    root.style.width = `${100 / s}vw`;
+    root.style.height = `${100 / s}vh`;
+    root.style.overflow = 'visible';
+    document.body.style.overflow = 'visible';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [uiScale]);
 
   const handleCreate = (opts?: Record<string, unknown>) => connect(undefined, opts).then(() => undefined);
   const handleJoin   = (code: string, opts?: Record<string, unknown>) => connect(code, opts).then(() => undefined);
