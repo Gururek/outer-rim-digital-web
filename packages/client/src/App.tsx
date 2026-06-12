@@ -62,11 +62,11 @@ export default function App() {
           </div>
         )}
         <p style={S.centreSub}>
-          {playerCount >= 2
-            ? `${playerCount} PLAYERS READY — STARTING SOON`
-            : `NEED ${2 - playerCount} MORE PLAYER${2 - playerCount !== 1 ? 'S' : ''} TO START`}
+          {playerCount >= 1
+            ? `${playerCount} PLAYER${playerCount !== 1 ? 'S' : ''} READY — STARTING SOON`
+            : 'WAITING TO START'}
         </p>
-        <p style={{ ...S.centreSub, marginTop: 4, opacity: .5 }}>Share this code with friends.</p>
+        <p style={{ ...S.centreSub, marginTop: 4, opacity: .5 }}>Share this code to add more players.</p>
       </div>
     );
   }

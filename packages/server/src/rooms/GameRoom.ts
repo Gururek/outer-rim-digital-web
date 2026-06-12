@@ -102,9 +102,9 @@ export class GameRoom extends Room<GameState> {
     this.state.players.set(client.sessionId, ps);
     console.log(`[GameRoom] ${ps.displayName} joined as ${ps.characterId}/${ps.shipId}. Players: ${this.clients.length}`);
 
-    // Auto-start when enough players are ready
+    // Auto-start when all connected players are ready (solo play allowed)
     const allReady = Array.from(this.state.players.values()).every((p: any) => p.isReady);
-    if (allReady && this.clients.length >= 2) {
+    if (allReady && this.clients.length >= 1) {
       this.turnMachine.startGame();
     }
   }
@@ -140,7 +140,7 @@ export class GameRoom extends Room<GameState> {
     ps.isReady = true;
 
     const allReady = Array.from(this.state.players.values()).every((p: any) => p.isReady);
-    if (allReady && this.clients.length >= 2) {
+    if (allReady && this.clients.length >= 1) {
       this.turnMachine.startGame();
     }
   }

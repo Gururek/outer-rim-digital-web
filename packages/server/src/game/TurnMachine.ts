@@ -2,7 +2,7 @@ import type { GameState } from '../rooms/schema/GameState.js';
 import type { DeckManager } from './DeckManager.js';
 import type { PatrolManager } from './PatrolManager.js';
 import { CombatResolver } from './CombatResolver.js';
-import { findPath, MAP_NODES, CHARACTERS, getShip, getRandomDatabankCard, getDatabankCard, MARKET_CARDS } from '@outer-rim/shared';
+import { findPath, MAP_NODES, CHARACTERS, getShip, getRandomDatabankCard, getDatabankCard, MARKET_CARDS, drawRandomEncounter } from '@outer-rim/shared';
 import type {
   GamePhase, PlanningChoice, EncounterChoice,
   FactionType, ServerEvent, BountyCard
@@ -262,39 +262,51 @@ export class TurnMachine {
   private handleSpaceEncounter(sessionId: string) {
     const ps = this.state.players.get(sessionId)!;
     const node = MAP_NODES.find(n => n.id === ps.currentNodeId);
-    
-    // Randomized encounter outcomes
-    const roll = Math.random();
-    let outcome: string;
+    const card = drawRandomEncounter(node?.planetId ?? 'ANY');
+    const { effect } = card;
+
     let creditsGain = 0;
     let damage = 0;
     let fameGain = 0;
-    
-    if (roll < 0.25) {
-      // Salvage: gain credits
-      creditsGain = 1000 + Math.floor(Math.random() * 3000);
-      outcome = `Salvage found! Gained ${creditsGain} credits from a derelict freighter.`;
-      ps.credits += creditsGain;
-    } else if (roll < 0.45) {
-      // Asteroid field: minor hull damage
-      damage = 1 + Math.floor(Math.random() * 2);
-      ps.shipDamage = Math.min(ps.shipDamage + damage, this.getShipMaxHull(sessionId));
-      outcome = `Asteroid field! Ship took ${damage} hull damage navigating the debris.`;
-    } else if (roll < 0.60) {
-      // Distress signal: gain fame for rescuing
-      fameGain = 1;
-      ps.fame += fameGain;
-      outcome = `Distress signal! You rescued a stranded freighter crew. +${fameGain} Fame.`;
-    } else if (roll < 0.80) {
-      // Smuggler cache: minor credits
-      creditsGain = 500 + Math.floor(Math.random() * 1500);
-      outcome = `Smuggler's cache located. +${creditsGain} credits in contraband.`;
-      ps.credits += creditsGain;
-    } else {
-      // Nothing found
-      outcome = `Scans complete — nothing of interest in this sector.`;
+
+    switch (effect.type) {
+      case 'CREDITS_GAIN':
+        creditsGain = effect.amount ?? 1000;
+        ps.credits += creditsGain;
+        break;
+      case 'CREDITS_LOSE':
+        ps.credits = Math.max(0, ps.credits - (effect.amount ?? 500));
+        break;
+      case 'SHIP_DAMAGE':
+        damage = effect.amount ?? 1;
+        ps.shipDamage = Math.min(ps.shipDamage + damage, this.getShipMaxHull(sessionId));
+        break;
+      case 'CHAR_DAMAGE':
+        ps.characterDamage = Math.min(ps.characterDamage + (effect.amount ?? 1), this.getCharMaxHealth(sessionId));
+        break;
+      case 'FAME_GAIN':
+        fameGain = effect.amount ?? 1;
+        ps.fame += fameGain;
+        break;
+      case 'REP_GAIN':
+        if (effect.faction) this.modifyRep(ps, effect.faction, effect.amount ?? 1);
+        break;
+      case 'REP_LOSE':
+        if (effect.faction) this.modifyRep(ps, effect.faction, -(effect.amount ?? 1));
+        break;
+      case 'CARD_DRAW':
+        if (effect.deckType) {
+          const cardId = this.deckManager.getTopCardId(effect.deckType);
+          if (cardId > 0) {
+            this.giveCardToPlayer(ps, cardId);
+            this.deckManager.handleDiscard(sessionId, effect.deckType);
+          }
+        }
+        break;
+      case 'NOTHING':
+        break;
     }
-    
+
     this.room.broadcastEvent({
       event: 'CINEMATIC_TRIGGER',
       data: {
@@ -303,15 +315,15 @@ export class TurnMachine {
           sessionId,
           nodeId: ps.currentNodeId,
           nodeName: node?.name ?? 'Unknown',
-          outcome,
+          outcome: card.description,
           creditsGain,
           damage,
           fameGain,
+          cardTitle: card.title,
         }
       }
     });
-    
-    // Check if destroyed by asteroid
+
     if (ps.shipDamage >= this.getShipMaxHull(sessionId)) {
       this.applyDefeatPenalty(ps);
       this.room.sendToClient(sessionId, {
@@ -319,7 +331,7 @@ export class TurnMachine {
         data: { type: 'SHIP_DESTROYED', payload: { sessionId } }
       });
     }
-    
+
     setTimeout(() => this.transitionTo('WIN_CHECK'), 4000);
   }
 
@@ -674,6 +686,36 @@ export class TurnMachine {
       }
     }
     return combat;
+  }
+
+  private getCharMaxHealth(sessionId: string): number {
+    const ps = this.state.players.get(sessionId);
+    if (!ps) return 1;
+    const char = CHARACTERS.find(c => c.id === ps.characterId);
+    return char?.maxHealth ?? 8;
+  }
+
+  private giveCardToPlayer(
+    ps: NonNullable<ReturnType<typeof this.state.players.get>>,
+    cardId: number
+  ) {
+    const card = MARKET_CARDS.find(c => c.id === cardId);
+    if (!card) return;
+    let slots: any[] | null = null;
+    switch (card.deckType) {
+      case 'CARGO':    slots = ps.cargoSlots;      break;
+      case 'GEAR_MOD': slots = ps.modSlots;         break;
+      case 'JOB':      slots = ps.jobBountySlots;   break;
+      case 'BOUNTY':   slots = ps.jobBountySlots;   break;
+      case 'LUXURY':   slots = ps.modSlots;         break;
+      case 'SHIP':     slots = ps.modSlots;         break;
+    }
+    if (!slots) return;
+    const emptySlot = Array.from(slots).find((s: any) => !s.isOccupied);
+    if (emptySlot) {
+      emptySlot.isOccupied = true;
+      emptySlot.cardDefinitionId = cardId;
+    }
   }
 
   private getShipMaxHull(sessionId: string): number {

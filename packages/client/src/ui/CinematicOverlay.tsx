@@ -24,7 +24,9 @@ export default function CinematicOverlay({ onDismiss }: Props) {
   if (!visible) return null;
 
   const icon  = ICONS[cinematic.type]  ?? '◆';
-  const title = TITLES[cinematic.type] ?? cinematic.type.replace(/_/g, ' ');
+  const title = (cinematic.payload.cardTitle as string | undefined)
+    ?? TITLES[cinematic.type]
+    ?? cinematic.type.replace(/_/g, ' ');
   const color = COLORS[cinematic.type] ?? 'var(--ck-accent)';
 
   return (
