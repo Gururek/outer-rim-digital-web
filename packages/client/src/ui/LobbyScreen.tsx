@@ -3,86 +3,113 @@ import { CHARACTERS, SHIPS } from '@outer-rim/shared';
 
 interface Props {
   onConnect: (options?: Record<string, unknown>) => Promise<string | undefined>;
-  onJoin: (code: string, options?: Record<string, unknown>) => Promise<string | undefined>;
+  onJoin:    (code: string, options?: Record<string, unknown>) => Promise<string | undefined>;
 }
 
 export default function LobbyScreen({ onConnect, onJoin }: Props) {
   const [displayName, setDisplayName] = useState('Scoundrel');
-  const [roomCode, setRoomCode] = useState('');
-  const [characterId, setCharacterId] = useState(CHARACTERS[0].id);
-  const [shipId, setShipId] = useState(SHIPS[0].id);
-  const [loading, setLoading] = useState(false);
+  const [roomCode,    setRoomCode]    = useState('');
+  const [charId,      setCharId]      = useState(CHARACTERS[0].id);
+  const [shipId,      setShipId]      = useState(SHIPS[0].id);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState('');
+
+  const selectedChar = CHARACTERS.find(c => c.id === charId);
+  const selectedShip = SHIPS.find(s => s.id === shipId);
 
   const handleCreate = async () => {
-    setLoading(true);
-    try {
-      await onConnect({ displayName, characterId, shipId, fameRequirement: 10 });
-    } catch (err) {
-      console.error(err);
-    }
+    setLoading(true); setError('');
+    try { await onConnect({ displayName, characterId: charId, shipId, fameRequirement: 10 }); }
+    catch { setError('Could not create game. Is the server running?'); }
     setLoading(false);
   };
 
   const handleJoin = async () => {
-    setLoading(true);
-    try {
-      await onJoin(roomCode, { displayName, characterId, shipId });
-    } catch (err) {
-      console.error(err);
-    }
+    if (!roomCode.trim()) return;
+    setLoading(true); setError('');
+    try { await onJoin(roomCode.trim(), { displayName, characterId: charId, shipId }); }
+    catch { setError('Could not join room. Check the code and try again.'); }
     setLoading(false);
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>STAR WARS</h1>
-        <h2 style={styles.subtitle}>OUTER RIM — DIGITAL</h2>
+    <div style={S.backdrop}>
+      {/* Scanline */}
+      <div className="ck-scan" />
 
-        <div style={styles.section}>
-          <label style={styles.label}>Display Name</label>
-          <input
-            style={styles.input}
-            value={displayName}
-            onChange={e => setDisplayName(e.target.value)}
-          />
+      <div style={S.card}>
+        {/* Title */}
+        <div style={S.titleBlock}>
+          <div style={S.starWars}>STAR WARS</div>
+          <div style={S.subtitle}>OUTER RIM — DIGITAL</div>
+          <div style={S.divider} />
         </div>
 
-        <div style={styles.section}>
-          <label style={styles.label}>Character</label>
-          <select style={styles.select} value={characterId} onChange={e => setCharacterId(e.target.value)}>
-            {CHARACTERS.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
+        {/* Name */}
+        <div style={S.field}>
+          <label className="ck-label" style={{ display: 'block', marginBottom: 5 }}>CALLSIGN</label>
+          <input style={S.input} value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={24} />
+        </div>
+
+        {/* Character select */}
+        <div style={S.field}>
+          <label className="ck-label" style={{ display: 'block', marginBottom: 5 }}>CHARACTER</label>
+          <select style={S.select} value={charId} onChange={e => setCharId(e.target.value)}>
+            {CHARACTERS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+          {selectedChar && (
+            <div style={S.charDetail}>
+              <div style={S.skillRow}>
+                {selectedChar.skills.map(s => (
+                  <span key={s} style={S.skillTag}>{s}</span>
+                ))}
+              </div>
+              <div style={{ fontSize: 9, color: 'var(--ck-dim)', marginTop: 4, fontStyle: 'italic' }}>
+                {selectedChar.personalGoal}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div style={styles.section}>
-          <label style={styles.label}>Ship</label>
-          <select style={styles.select} value={shipId} onChange={e => setShipId(e.target.value)}>
-            {SHIPS.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
+        {/* Ship select */}
+        <div style={S.field}>
+          <label className="ck-label" style={{ display: 'block', marginBottom: 5 }}>SHIP</label>
+          <select style={S.select} value={shipId} onChange={e => setShipId(e.target.value)}>
+            {SHIPS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
+          {selectedShip && (
+            <div style={S.shipDetail}>
+              <StatPill label="HYPERDRIVE" value={selectedShip.hyperdrive} />
+              <StatPill label="HULL"       value={selectedShip.maxHull} />
+              <StatPill label="COMBAT"     value={selectedShip.shipCombatValue} />
+              <StatPill label="CARGO"      value={selectedShip.cargoSlots} />
+            </div>
+          )}
         </div>
 
-        <div style={styles.buttons}>
-          <button style={styles.btn} onClick={handleCreate} disabled={loading}>
-            {loading ? 'Connecting...' : 'Create Game'}
-          </button>
+        {error && <div style={S.errorBox}>{error}</div>}
 
-          <div style={styles.divider}>
-            <span>— or join —</span>
-          </div>
+        {/* Buttons */}
+        <button style={S.createBtn} onClick={handleCreate} disabled={loading}>
+          {loading ? 'CONNECTING...' : 'CREATE GAME'}
+        </button>
 
+        <div style={S.orRow}>
+          <div style={S.orLine} />
+          <span style={S.orText}>OR JOIN</span>
+          <div style={S.orLine} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 7 }}>
           <input
-            style={styles.input}
-            placeholder="Room Code"
+            style={{ ...S.input, flex: 1, letterSpacing: '.15em', textAlign: 'center' }}
+            placeholder="ROOM CODE"
             value={roomCode}
-            onChange={e => setRoomCode(e.target.value)}
+            onChange={e => setRoomCode(e.target.value.toUpperCase())}
+            maxLength={12}
           />
-          <button style={styles.btn} onClick={handleJoin} disabled={loading || !roomCode.trim()}>
-            Join Game
+          <button style={S.joinBtn} onClick={handleJoin} disabled={loading || !roomCode.trim()}>
+            JOIN
           </button>
         </div>
       </div>
@@ -90,85 +117,163 @@ export default function LobbyScreen({ onConnect, onJoin }: Props) {
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  container: {
+function StatPill({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 7, color: 'var(--ck-dim)', letterSpacing: '.08em' }}>{label}</span>
+      <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: 12, color: 'var(--ck-accent)', marginTop: 1 }}>{value}</span>
+    </div>
+  );
+}
+
+const S: Record<string, React.CSSProperties> = {
+  backdrop: {
+    position: 'relative',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     height: '100vh',
-    background: 'radial-gradient(ellipse at center, #0a1a2e 0%, #000 70%)',
+    background: 'var(--ck-bg)',
+    fontFamily: "'Share Tech Mono', monospace",
   },
   card: {
-    background: 'rgba(0, 0, 0, 0.8)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
-    borderRadius: '12px',
-    padding: '2.5rem',
-    maxWidth: '420px',
-    width: '100%',
+    background: 'var(--ck-panel)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 6,
+    padding: '2rem',
+    width: 400,
+    maxWidth: '92vw',
+    position: 'relative',
+    zIndex: 1,
   },
-  title: {
-    fontSize: '2rem',
+  titleBlock: {
     textAlign: 'center',
-    letterSpacing: '0.3em',
-    color: '#ffd700',
-    marginBottom: '0.25rem',
+    marginBottom: '1.5rem',
+  },
+  starWars: {
+    fontFamily: "'Orbitron', sans-serif",
+    fontSize: '1.8rem',
+    color: 'var(--ck-gold)',
+    letterSpacing: '.3em',
+    fontWeight: 600,
   },
   subtitle: {
-    fontSize: '0.85rem',
-    textAlign: 'center',
-    color: '#888',
-    marginBottom: '2rem',
-    letterSpacing: '0.2em',
+    fontFamily: "'Orbitron', sans-serif",
+    fontSize: '.7rem',
+    color: 'var(--ck-dim)',
+    letterSpacing: '.25em',
+    marginTop: '.25rem',
   },
-  section: {
+  divider: {
+    height: 1,
+    background: 'linear-gradient(90deg, transparent, var(--ck-border), transparent)',
+    margin: '1rem 0 0',
+  },
+  field: {
     marginBottom: '1rem',
-  },
-  label: {
-    display: 'block',
-    fontSize: '0.75rem',
-    color: '#888',
-    marginBottom: '0.3rem',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
   },
   input: {
     width: '100%',
-    padding: '0.6rem',
-    background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
-    borderRadius: '6px',
-    color: '#e0e0e0',
-    fontSize: '0.9rem',
+    padding: '8px 10px',
+    background: 'var(--ck-bg)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 4,
+    color: 'var(--ck-val)',
+    fontFamily: "'Share Tech Mono', monospace",
+    fontSize: 12,
     outline: 'none',
   },
   select: {
     width: '100%',
-    padding: '0.6rem',
-    background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
-    borderRadius: '6px',
-    color: '#e0e0e0',
-    fontSize: '0.9rem',
+    padding: '8px 10px',
+    background: 'var(--ck-bg)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 4,
+    color: 'var(--ck-val)',
+    fontFamily: "'Share Tech Mono', monospace",
+    fontSize: 12,
   },
-  buttons: {
+  charDetail: {
+    marginTop: 6,
+    padding: '6px 8px',
+    background: 'var(--ck-bg)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 3,
+  },
+  skillRow: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '0.75rem',
-    marginTop: '1.5rem',
+    flexWrap: 'wrap',
+    gap: 4,
   },
-  btn: {
-    padding: '0.75rem',
-    background: 'linear-gradient(135deg, #d4a017, #ffd700)',
-    border: 'none',
-    borderRadius: '6px',
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: '0.95rem',
+  skillTag: {
+    fontSize: 8,
+    padding: '2px 5px',
+    borderRadius: 2,
+    fontFamily: "'Orbitron',sans-serif",
+    letterSpacing: '.05em',
+    background: 'rgba(77,166,255,.12)',
+    border: '1px solid rgba(77,166,255,.25)',
+    color: 'var(--ck-accent)',
+  },
+  shipDetail: {
+    marginTop: 6,
+    padding: '8px 10px',
+    background: 'var(--ck-bg)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 3,
+    display: 'flex',
+    justifyContent: 'space-around',
+  },
+  errorBox: {
+    fontSize: 9,
+    color: 'var(--ck-red)',
+    border: '1px solid rgba(224,85,85,.3)',
+    borderRadius: 3,
+    padding: '6px 10px',
+    marginBottom: '0.75rem',
+    fontFamily: "'Orbitron',sans-serif",
+    letterSpacing: '.06em',
+  },
+  createBtn: {
+    width: '100%',
+    padding: '10px',
+    background: 'rgba(77,166,255,.12)',
+    border: '1px solid var(--ck-accent)',
+    borderRadius: 4,
+    color: 'var(--ck-accent)',
+    fontFamily: "'Orbitron',sans-serif",
+    fontSize: 10,
+    letterSpacing: '.15em',
     cursor: 'pointer',
+    marginBottom: '0.75rem',
   },
-  divider: {
-    textAlign: 'center',
-    color: '#555',
-    fontSize: '0.8rem',
+  orRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: '0.75rem',
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    background: 'var(--ck-border)',
+  },
+  orText: {
+    fontFamily: "'Orbitron',sans-serif",
+    fontSize: 8,
+    color: 'var(--ck-dim)',
+    letterSpacing: '.12em',
+  },
+  joinBtn: {
+    padding: '8px 16px',
+    background: 'var(--ck-panel2)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 4,
+    color: 'var(--ck-val)',
+    fontFamily: "'Orbitron',sans-serif",
+    fontSize: 10,
+    letterSpacing: '.1em',
+    cursor: 'pointer',
+    flexShrink: 0,
   },
 };

@@ -1,6 +1,6 @@
 import type { GameState } from '../rooms/schema/GameState.js';
 import type { MarketDeckType } from '@outer-rim/shared';
-import { MARKET_CARDS, getCardsByDeck } from '@outer-rim/shared';
+import { MARKET_CARDS, MAP_NODES, getCardsByDeck } from '@outer-rim/shared';
 
 export class DeckManager {
   private decks: Map<MarketDeckType, number[]>;
@@ -112,8 +112,9 @@ export class DeckManager {
 
     const cargoCard = card as import('@outer-rim/shared').CargoCard;
     
-    // Check if player is at the delivery destination
-    if (ps.currentNodeId !== Number(cargoCard.destinationPlanetId)) return null;
+    // Resolve destination: destinationPlanetId is the node's planetId string (e.g. 'tatooine')
+    const destNode = MAP_NODES.find(n => n.planetId === cargoCard.destinationPlanetId);
+    if (!destNode || ps.currentNodeId !== destNode.id) return null;
 
     const reward = cargoCard.deliveryReward ?? cargoCard.buyCost * 2;
 

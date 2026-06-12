@@ -199,21 +199,6 @@ export const useGameStore = create<GameStore>((set) => ({
         }
       });
     }
-    if (event.event === 'DICE_ROLLED') {
-      // Dice results processed by COMBAT_RESULT handler
-    }
-    if (event.event === 'PATROL_MOVED') {
-      // State sync handles patrol position updates
-    }
-    if (event.event === 'ENCOUNTER_CARD') {
-      set({
-        cinematic: {
-          active: true,
-          type: 'ENCOUNTER_CARD',
-          payload: event.data as Record<string, unknown>,
-        }
-      });
-    }
   },
 
   setActiveTab: (tab) => set({ activeTab: tab }),

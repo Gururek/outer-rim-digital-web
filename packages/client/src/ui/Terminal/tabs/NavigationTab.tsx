@@ -1,139 +1,128 @@
+import { useState } from 'react';
 import { useGameStore } from '../../../stores/gameStore';
-import { CHARACTERS } from '@outer-rim/shared';
+import { CHARACTERS, MAP_NODES, getNodeById, getConnectedNodes } from '@outer-rim/shared';
 import type { ClientMessage, PlanningChoice } from '@outer-rim/shared';
-import { MAP_NODES, getNodeById, getConnectedNodes, MARKET_CARDS } from '@outer-rim/shared';
 
 interface Props {
   onSend: (msg: ClientMessage) => void;
 }
 
 export default function NavigationTab({ onSend }: Props) {
-  const phase = useGameStore(s => s.phase);
-  const mySessionId = useGameStore(s => s.mySessionId);
-  const players = useGameStore(s => s.players);
-  const activePlayerId = useGameStore(s => s.activePlayerId);
-  const patrolNodes = useGameStore(s => s.patrolNodes);
+  const [selectedChoice, setSelectedChoice] = useState<PlanningChoice | null>(null);
+  const phase          = useGameStore(s => s.phase);
+  const myId           = useGameStore(s => s.mySessionId);
+  const activeId       = useGameStore(s => s.activePlayerId);
+  const players        = useGameStore(s => s.players);
+  const patrolNodes    = useGameStore(s => s.patrolNodes);
 
-  const myPlayer = players.get(mySessionId);
-  if (!myPlayer) return <p style={styles.text}>Not connected.</p>;
+  const me = players.get(myId);
+  if (!me) return <p style={S.dim}>Not connected.</p>;
 
-  const currentNode = getNodeById(myPlayer.currentNodeId);
-  const connected = currentNode ? getConnectedNodes(currentNode.id) : [];
-  const isMyTurn = activePlayerId === mySessionId;
+  const isMyTurn    = activeId === myId;
+  const currentNode = getNodeById(me.currentNodeId);
+  const connected   = currentNode ? getConnectedNodes(currentNode.id) : [];
+  const char        = CHARACTERS.find(c => c.id === me.characterId);
+  const maxHealth   = char?.maxHealth ?? 8;
+  const isDefeated  = me.characterDamage >= maxHealth;
 
-  const handlePlanningChoice = (choice: PlanningChoice) => {
-    onSend({ type: 'PLANNING_CHOICE', payload: { choice } });
-  };
-
-  const handleMove = (destNodeId: number) => {
-    onSend({ type: 'CONFIRM_MOVE', payload: { destinationNodeId: destNodeId } });
-  };
-
-  // Get character info for max health comparison
-  const character = CHARACTERS.find(c => c.id === myPlayer.characterId);
-  const maxHealth = character?.maxHealth ?? 8;
-  const isDefeated = myPlayer.characterDamage >= maxHealth;
-
-  // ─── PLANNING PHASE ──────────────────────────────────────────────────────────
+  // ── PLANNING ────────────────────────────────────────────────────────────────
 
   if (phase === 'PLANNING' && isMyTurn) {
+    const choices: { id: PlanningChoice; label: string; desc: string; disabled?: boolean }[] = [
+      { id: 'MOVE',          label: 'SET COURSE',    desc: 'Move up to your hyperdrive range', disabled: isDefeated },
+      { id: 'RECOVER',       label: 'REST & REPAIR', desc: 'Recover all hull and health damage' },
+      { id: 'GAIN_CREDITS',  label: 'ODD JOBS',      desc: 'Gain 2,000 credits instead of acting', disabled: isDefeated },
+    ];
+
+    const handleConfirm = () => {
+      if (!selectedChoice) return;
+      onSend({ type: 'PLANNING_CHOICE', payload: { choice: selectedChoice } });
+      setSelectedChoice(null);
+    };
+
     return (
       <div>
-        <h3 style={styles.heading}>PLANNING PHASE</h3>
-        <div style={styles.infoRow}>
-          <span style={styles.label}>Location:</span>
-          <span style={styles.value}>{currentNode?.name ?? 'Unknown'}</span>
-        </div>
-        <div style={styles.infoRow}>
-          <span style={styles.label}>Credits:</span>
-          <span style={{ ...styles.value, color: '#ffd700' }}>{myPlayer.credits} cr</span>
-        </div>
-        <div style={styles.infoRow}>
-          <span style={styles.label}>Health:</span>
-          <span style={{ ...styles.value, color: myPlayer.characterDamage > 0 ? '#ff8844' : '#00ff88' }}>
-            {maxHealth - myPlayer.characterDamage} / {maxHealth}
-          </span>
-        </div>
+        <div className="ck-label" style={{ marginBottom: 10 }}>CHOOSE ACTION — PLANNING PHASE</div>
 
         {isDefeated && (
-          <div style={styles.defeatedBanner}>
-            <p style={styles.defeatedText}>DEFEATED — Must RECOVER this turn</p>
-          </div>
+          <div style={S.defeatedBanner}>DEFEATED — MUST RECOVER THIS TURN</div>
         )}
 
-        <div style={styles.choices}>
-          <button
-            style={{ ...styles.btn, ...styles.moveBtn }}
-            onClick={() => handlePlanningChoice('MOVE')}
-            disabled={isDefeated}
-          >
-            🚀 MOVE
-            <span style={styles.btnSubtext}>Travel on the galaxy map</span>
-          </button>
-          <button
-            style={{ ...styles.btn, ...styles.recoverBtn }}
-            onClick={() => handlePlanningChoice('RECOVER')}
-          >
-            🩹 RECOVER
-            <span style={styles.btnSubtext}>Repair all hull &amp; health damage</span>
-          </button>
-          <button
-            style={{ ...styles.btn, ...styles.creditsBtn }}
-            onClick={() => handlePlanningChoice('GAIN_CREDITS')}
-            disabled={isDefeated}
-          >
-            💰 GAIN +2000 cr
-            <span style={styles.btnSubtext}>Skip actions to earn credits</span>
-          </button>
+        <div style={{ display: 'grid', gap: 7 }}>
+          {choices.map(c => {
+            const sel = selectedChoice === c.id;
+            return (
+              <button
+                key={c.id}
+                style={{
+                  ...S.choiceBtn,
+                  ...(sel ? S.choiceSel : {}),
+                  ...(c.disabled ? S.choiceDisabled : {}),
+                }}
+                onClick={() => !c.disabled && setSelectedChoice(sel ? null : c.id)}
+                disabled={c.disabled}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontFamily: "'Orbitron',sans-serif",
+                    fontSize: 10,
+                    color: sel ? 'var(--ck-accent)' : 'var(--ck-val)',
+                    letterSpacing: '.06em',
+                    marginBottom: 2,
+                  }}>{c.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ck-dim)' }}>{c.desc}</div>
+                </div>
+                {sel && (
+                  <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 8, color: 'var(--ck-accent)', marginLeft: 4 }}>
+                    SELECTED
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {isDefeated && (
-          <p style={styles.hint}>Defeated players cannot move or gain credits.</p>
+        {selectedChoice && (
+          <button style={S.confirmBtn} onClick={handleConfirm}>
+            CONFIRM AND PROCEED →
+          </button>
         )}
       </div>
     );
   }
 
-  // ─── ACTION PHASE ────────────────────────────────────────────────────────────
+  // ── ACTION ──────────────────────────────────────────────────────────────────
 
   if (phase === 'ACTION' && isMyTurn) {
-    const actionsLeft = myPlayer.actionsRemaining;
     return (
       <div>
-        <h3 style={styles.heading}>ACTION PHASE</h3>
-        <div style={styles.infoRow}>
-          <span style={styles.label}>Location:</span>
-          <span style={styles.value}>{currentNode?.name ?? 'Unknown'}</span>
+        <div className="ck-label" style={{ marginBottom: 6 }}>ACTION PHASE</div>
+        <div style={S.infoRow}>
+          <span className="ck-label">LOCATION</span>
+          <span style={S.val}>{currentNode?.name ?? '—'}</span>
         </div>
-        <div style={styles.infoRow}>
-          <span style={styles.label}>Credits:</span>
-          <span style={{ ...styles.value, color: '#ffd700' }}>{myPlayer.credits} cr</span>
+        <div style={S.infoRow}>
+          <span className="ck-label">ACTIONS</span>
+          <span style={{ ...S.val, color: me.actionsRemaining > 0 ? 'var(--ck-green)' : 'var(--ck-dim)' }}>
+            {me.actionsRemaining} REMAINING
+          </span>
         </div>
-        <div style={styles.actCount}>
-          ACTIONS REMAINING: {actionsLeft}
-        </div>
-        <p style={styles.subtext}>Buy/sell at market, deliver cargo, or interact with contacts.</p>
 
-        {/* Connected nodes — only show MOVE if actions remain */}
-        {actionsLeft > 0 && (
+        {me.actionsRemaining > 0 && (
           <>
-            <h4 style={styles.subheading}>Move to System</h4>
-            <div style={styles.nodeList}>
+            <div className="ck-label" style={{ margin: '10px 0 6px' }}>JUMP TO SYSTEM</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {connected.map(node => (
-                <div key={node.id} style={styles.nodeItem}>
-                  <div>
-                    <span style={{ marginRight: '0.3rem' }}>
-                      {node.type === 'PLANET' ? '🪐' : node.type === 'MAELSTROM' ? '🌀' : '✦'}
-                    </span>
-                    <span>{node.name}</span>
-                    <span style={{ fontSize: '0.6rem', color: '#555', marginLeft: '0.3rem' }}>
-                      ({node.factionOwner !== 'NONE' ? node.factionOwner : 'neutral'})
+                <div key={node.id} style={S.nodeRow}>
+                  <div style={{ flex: 1, fontSize: 11, color: 'var(--ck-val)' }}>
+                    {node.type === 'PLANET' ? '◉' : node.type === 'MAELSTROM' ? '◌' : '◈'}{' '}
+                    {node.name}
+                    <span style={{ fontSize: 8, color: 'var(--ck-dim)', marginLeft: 6 }}>
+                      {node.factionOwner !== 'NONE' ? node.factionOwner : 'NEUTRAL'}
                     </span>
                   </div>
-                  <button
-                    style={styles.smallBtn}
-                    onClick={() => handleMove(node.id)}
-                  >
+                  <button style={S.jumpBtn}
+                    onClick={() => onSend({ type: 'CONFIRM_MOVE', payload: { destinationNodeId: node.id } })}>
                     JUMP
                   </button>
                 </div>
@@ -142,300 +131,179 @@ export default function NavigationTab({ onSend }: Props) {
           </>
         )}
 
-        <button
-          style={{ ...styles.btn, marginTop: '0.75rem' }}
-          onClick={() => onSend({ type: 'END_ACTION_PHASE' })}
-        >
-          ⏩ END ACTION PHASE
+        <button style={{ ...S.confirmBtn, marginTop: 10 }}
+          onClick={() => onSend({ type: 'END_ACTION_PHASE' })}>
+          END ACTION PHASE →
         </button>
       </div>
     );
   }
 
-  // ─── ENCOUNTER PHASE ─────────────────────────────────────────────────────────
+  // ── ENCOUNTER ───────────────────────────────────────────────────────────────
 
   if (phase === 'ENCOUNTER' && isMyTurn) {
-    const hasPatrolHere = Object.values(patrolNodes).includes(myPlayer.currentNodeId);
-    
-    // Check if player has a job card matching current planet
-    const currentPlanet = MAP_NODES.find(n => n.id === myPlayer.currentNodeId);
-    const planetId = currentPlanet?.planetId ?? '';
-    const hasJobHere = myPlayer.jobBountySlots.some(cardId => {
-      const card = MARKET_CARDS.find(c => c.id === cardId);
-      return card && card.deckType === 'JOB' && 'destinationPlanetId' in card && 
-        (card as any).destinationPlanetId === planetId;
-    });
-    
+    const hasPatrol = Object.values(patrolNodes).includes(me.currentNodeId);
+
+    const actions = [
+      { id: 'FIGHT_PATROL',    label: 'ENGAGE PATROL',  desc: 'Attack the hostile patrol', available: hasPatrol, danger: true },
+      { id: 'SPACE_ENCOUNTER', label: 'SPACE ENCOUNTER', desc: 'Scan for anomalies and salvage', available: true, danger: false },
+      { id: 'ATTEMPT_JOB',     label: 'COMPLETE JOB',   desc: 'Deliver your job at this planet', available: true, danger: false },
+      { id: 'ATTEMPT_BOUNTY',  label: 'HUNT BOUNTY',    desc: 'Track down your bounty target', available: true, danger: false },
+      { id: 'CONTACT',         label: 'MEET CONTACT',   desc: 'Reveal a contact token', available: true, danger: false },
+    ] as const;
+
     return (
       <div>
-        <h3 style={styles.heading}>ENCOUNTER PHASE</h3>
-        <div style={styles.infoRow}>
-          <span style={styles.label}>Location:</span>
-          <span style={styles.value}>{currentNode?.name ?? 'Unknown'}</span>
+        <div className="ck-label" style={{ marginBottom: 6 }}>ENCOUNTER PHASE</div>
+        <div style={S.infoRow}>
+          <span className="ck-label">LOCATION</span>
+          <span style={S.val}>{currentNode?.name ?? '—'}</span>
         </div>
-        <p style={styles.subtext}>Choose your encounter action:</p>
-        <div style={styles.choices}>
-          {hasPatrolHere ? (
+        <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+          {actions.map(a => (
             <button
-              style={{ ...styles.btn, ...styles.fightBtn }}
-              onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'FIGHT_PATROL' } })}
+              key={a.id}
+              style={{
+                ...S.choiceBtn,
+                ...(a.danger ? S.dangerChoice : {}),
+                ...(!a.available ? S.choiceDisabled : {}),
+              }}
+              onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: a.id as any } })}
+              disabled={!a.available}
             >
-              ⚔️ FIGHT PATROL
-              <span style={styles.btnSubtext}>Engage hostile patrol ships</span>
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontFamily: "'Orbitron',sans-serif",
+                  fontSize: 10,
+                  color: a.danger ? 'var(--ck-red)' : 'var(--ck-val)',
+                  letterSpacing: '.06em',
+                  marginBottom: 2,
+                }}>{a.label}</div>
+                <div style={{ fontSize: 10, color: 'var(--ck-dim)' }}>{a.desc}</div>
+              </div>
             </button>
-          ) : (
-            <div style={{ ...styles.btn, ...styles.fightBtn, ...styles.disabledBtn }}>
-              ⚔️ FIGHT PATROL
-              <span style={styles.btnSubtext}>No patrol at this location</span>
-            </div>
-          )}
-          <button
-            style={{ ...styles.btn, ...styles.encounterBtn }}
-            onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'SPACE_ENCOUNTER' } })}
-          >
-            🎲 SPACE ENCOUNTER
-            <span style={styles.btnSubtext}>Scan for salvage, anomalies, or distress signals</span>
-          </button>
-          {hasJobHere ? (
-            <button
-              style={{ ...styles.btn, ...styles.jobBtn }}
-              onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'ATTEMPT_JOB' } })}
-            >
-              📋 ATTEMPT JOB
-              <span style={styles.btnSubtext}>Complete a job at this planet</span>
-            </button>
-          ) : (
-            <div style={{ ...styles.btn, ...styles.jobBtn, ...styles.disabledBtn }}>
-              📋 ATTEMPT JOB
-              <span style={styles.btnSubtext}>No job for this planet</span>
-            </div>
-          )}
-          {myPlayer.jobBountySlots.some(cardId => {
-            const card = MARKET_CARDS.find(c => c.id === cardId);
-            return card && card.deckType === 'BOUNTY';
-          }) ? (
-            <button
-              style={{ ...styles.btn, ...styles.bountyBtn }}
-              onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'ATTEMPT_BOUNTY' } })}
-            >
-              💀 HUNT BOUNTY
-              <span style={styles.btnSubtext}>Track down and engage a bounty target</span>
-            </button>
-          ) : (
-            <div style={{ ...styles.btn, ...styles.bountyBtn, ...styles.disabledBtn }}>
-              💀 HUNT BOUNTY
-              <span style={styles.btnSubtext}>No active bounties</span>
-            </div>
-          )}
-          <button
-            style={{ ...styles.btn, ...styles.contactBtn }}
-            onClick={() => onSend({ type: 'SUBMIT_ENCOUNTER', payload: { choice: 'CONTACT' } })}
-          >
-            👤 CONTACT
-            <span style={styles.btnSubtext}>Reveal a contact token</span>
-          </button>
+          ))}
         </div>
       </div>
     );
   }
 
-  // ─── COMBAT / WIN_CHECK / OTHER ──────────────────────────────────────────────
+  // ── COMBAT / WIN_CHECK ──────────────────────────────────────────────────────
 
   if (phase === 'COMBAT') {
     return (
       <div>
-        <h3 style={styles.heading}>COMBAT</h3>
-        <p style={styles.text}>Battle in progress...</p>
-        <p style={styles.subtext}>Check the cinematic overlay for results.</p>
+        <div className="ck-label" style={{ marginBottom: 8 }}>COMBAT IN PROGRESS</div>
+        <p style={S.dim}>Watch the combat overlay for results.</p>
       </div>
     );
   }
 
-  if (phase === 'WIN_CHECK') {
-    return (
-      <div>
-        <h3 style={styles.heading}>CHECKING FAME</h3>
-        <p style={styles.text}>Your Fame: {myPlayer.fame}</p>
-        <p style={styles.subtext}>Advancing to next turn...</p>
-      </div>
-    );
-  }
+  // ── WAITING / OTHER ─────────────────────────────────────────────────────────
 
-  // ─── DEFAULT — not my turn or waiting ────────────────────────────────────────
-
-  const activePlayer = players.get(activePlayerId);
+  const activePlayer = players.get(activeId);
   return (
     <div>
-      <h3 style={styles.heading}>NAVIGATION</h3>
-      <div style={styles.infoRow}>
-        <span style={styles.label}>Location:</span>
-        <span style={styles.value}>{currentNode?.name ?? 'Unknown'}</span>
+      <div className="ck-label" style={{ marginBottom: 8 }}>NAVIGATION</div>
+      <div style={S.infoRow}>
+        <span className="ck-label">LOCATION</span>
+        <span style={S.val}>{currentNode?.name ?? '—'}</span>
       </div>
-      <p style={styles.subtext}>
+      <p style={S.dim}>
         {activePlayer
-          ? `Waiting for ${activePlayer.displayName}'s ${phase.replace(/_/g, ' ')}...`
-          : `Waiting for ${phase.replace(/_/g, ' ')}...`
-        }
+          ? `${activePlayer.displayName.toUpperCase()} — ${phase.replace(/_/g, ' ')}`
+          : 'WAITING FOR TURN'}
       </p>
     </div>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  heading: {
-    fontSize: '0.85rem',
-    color: '#ffd700',
-    marginBottom: '0.5rem',
-    letterSpacing: '0.05em',
-  },
-  subheading: {
-    fontSize: '0.75rem',
-    color: '#888',
-    marginTop: '1rem',
-    marginBottom: '0.5rem',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.1em',
+const S: Record<string, React.CSSProperties> = {
+  dim: {
+    fontSize: 10,
+    color: 'var(--ck-dim)',
+    marginTop: 4,
   },
   infoRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    marginBottom: '0.2rem',
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  label: {
-    fontSize: '0.7rem',
-    color: '#666',
-  },
-  value: {
-    fontSize: '0.75rem',
-    color: '#ccc',
-  },
-  text: {
-    fontSize: '0.8rem',
-    color: '#ccc',
-    marginBottom: '0.25rem',
-  },
-  subtext: {
-    fontSize: '0.7rem',
-    color: '#888',
-    marginBottom: '0.75rem',
-  },
-  hint: {
-    fontSize: '0.65rem',
-    color: '#666',
-    marginTop: '0.5rem',
-    fontStyle: 'italic',
-  },
-  actCount: {
-    fontSize: '0.8rem',
-    color: '#00ff88',
-    fontWeight: 'bold',
-    marginBottom: '0.5rem',
+  val: {
+    fontSize: 11,
+    color: 'var(--ck-val)',
+    fontFamily: "'Share Tech Mono',monospace",
   },
   defeatedBanner: {
-    background: 'rgba(255, 68, 68, 0.15)',
-    border: '1px solid rgba(255, 68, 68, 0.3)',
-    borderRadius: '4px',
-    padding: '0.4rem 0.6rem',
-    marginBottom: '0.75rem',
-    textAlign: 'center' as const,
+    fontFamily: "'Orbitron',sans-serif",
+    fontSize: 9,
+    color: 'var(--ck-red)',
+    border: '1px solid var(--ck-red)',
+    borderRadius: 3,
+    padding: '5px 10px',
+    textAlign: 'center',
+    marginBottom: 10,
+    letterSpacing: '.08em',
+    background: 'rgba(224,85,85,.06)',
   },
-  defeatedText: {
-    color: '#ff6666',
-    fontSize: '0.75rem',
-    fontWeight: 'bold',
-    margin: 0,
-  },
-  choices: {
+  choiceBtn: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-    marginTop: '0.75rem',
-  },
-  btn: {
-    padding: '0.6rem',
-    background: 'rgba(0, 255, 136, 0.1)',
-    border: '1px solid rgba(0, 255, 136, 0.3)',
-    borderRadius: '4px',
-    color: '#00ff88',
+    alignItems: 'center',
+    gap: 10,
+    padding: '10px 12px',
+    background: 'var(--ck-panel)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 4,
     cursor: 'pointer',
-    fontSize: '0.75rem',
-    fontFamily: "'Courier New', monospace",
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    transition: 'background 0.2s',
+    width: '100%',
+    textAlign: 'left',
+    transition: 'border-color .15s',
+    fontFamily: "'Share Tech Mono',monospace",
   },
-  moveBtn: {
-    borderColor: 'rgba(0, 200, 255, 0.3)',
-    color: '#00ccff',
-    background: 'rgba(0, 200, 255, 0.08)',
+  choiceSel: {
+    background: 'var(--ck-panel2)',
+    borderColor: 'var(--ck-accent)',
   },
-  recoverBtn: {
-    borderColor: 'rgba(255, 136, 68, 0.3)',
-    color: '#ff8844',
-    background: 'rgba(255, 136, 68, 0.08)',
-  },
-  creditsBtn: {
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-    color: '#ffd700',
-    background: 'rgba(255, 215, 0, 0.08)',
-  },
-  fightBtn: {
-    borderColor: 'rgba(255, 68, 68, 0.3)',
-    color: '#ff4444',
-    background: 'rgba(255, 68, 68, 0.08)',
-  },
-  disabledBtn: {
-    opacity: 0.35,
+  choiceDisabled: {
+    opacity: .35,
     cursor: 'not-allowed',
   },
-  encounterBtn: {
-    borderColor: 'rgba(100, 100, 255, 0.3)',
-    color: '#8888ff',
-    background: 'rgba(100, 100, 255, 0.08)',
+  dangerChoice: {
+    borderColor: 'rgba(224,85,85,.3)',
+    background: 'rgba(224,85,85,.04)',
   },
-  jobBtn: {
-    borderColor: 'rgba(0, 255, 200, 0.3)',
-    color: '#00ffcc',
-    background: 'rgba(0, 255, 200, 0.08)',
-  },
-  bountyBtn: {
-    borderColor: 'rgba(255, 100, 50, 0.3)',
-    color: '#ff6432',
-    background: 'rgba(255, 100, 50, 0.08)',
-  },
-  contactBtn: {
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    color: '#cccccc',
-    background: 'rgba(255, 255, 255, 0.06)',
-  },
-  btnSubtext: {
-    fontSize: '0.6rem',
-    opacity: 0.6,
-    marginTop: '0.15rem',
-  },
-  smallBtn: {
-    padding: '0.2rem 0.5rem',
-    background: 'rgba(0, 200, 255, 0.1)',
-    border: '1px solid rgba(0, 200, 255, 0.3)',
-    borderRadius: '3px',
-    color: '#00ccff',
+  confirmBtn: {
+    width: '100%',
+    padding: 9,
+    background: 'rgba(77,166,255,.1)',
+    border: '1px solid var(--ck-accent)',
+    borderRadius: 4,
     cursor: 'pointer',
-    fontSize: '0.6rem',
-    fontFamily: "'Courier New', monospace",
+    fontFamily: "'Orbitron',sans-serif",
+    fontSize: 9,
+    color: 'var(--ck-accent)',
+    letterSpacing: '.12em',
+    marginTop: 10,
   },
-  nodeList: {
+  nodeRow: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '0.3rem',
-  },
-  nodeItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '0.3rem 0',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-    fontSize: '0.75rem',
-    color: '#aaa',
+    justifyContent: 'space-between',
+    padding: '5px 8px',
+    background: 'var(--ck-panel)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 3,
+  },
+  jumpBtn: {
+    padding: '3px 8px',
+    background: 'rgba(77,166,255,.12)',
+    border: '1px solid rgba(77,166,255,.3)',
+    borderRadius: 3,
+    color: 'var(--ck-accent)',
+    cursor: 'pointer',
+    fontFamily: "'Orbitron',sans-serif",
+    fontSize: 8,
+    letterSpacing: '.08em',
   },
 };

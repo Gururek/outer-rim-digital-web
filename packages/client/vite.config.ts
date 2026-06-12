@@ -11,11 +11,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      '/ws': {
-        target: 'ws://localhost:2567',
-        ws: true,
-      },
-    },
+    host: true,  // listen on 0.0.0.0 so the dev server is reachable on the LAN
   },
 });

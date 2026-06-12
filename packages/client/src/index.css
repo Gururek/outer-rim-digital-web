@@ -1,12 +1,23 @@
 :root {
-  --faction-hutt: #d4a017;
-  --faction-syndicate: #8b0000;
-  --faction-imperial: #1a5276;
-  --faction-rebel: #2e7d32;
-  --hud-bg: rgba(0, 0, 0, 0.85);
-  --hud-border: rgba(255, 255, 255, 0.1);
-  --hud-text: #e0e0e0;
-  --hud-accent: #00bfff;
+  /* Cockpit color palette */
+  --ck-bg:      #060d18;
+  --ck-panel:   #0c1c2e;
+  --ck-panel2:  #112538;
+  --ck-border:  #1a3555;
+  --ck-text:    #9eb8cc;
+  --ck-val:     #d0e8f8;
+  --ck-dim:     #3d5a70;
+  --ck-accent:  #4da6ff;
+  --ck-gold:    #f5a020;
+  --ck-green:   #3cc87a;
+  --ck-red:     #e05555;
+  --ck-grey:    #8099b8;
+
+  /* Faction colors */
+  --faction-hutt:       #f5a020;
+  --faction-syndicate:  #3cc87a;
+  --faction-imperial:   #8099b8;
+  --faction-rebel:      #e05555;
 }
 
 * {
@@ -16,9 +27,9 @@
 }
 
 body {
-  font-family: 'Courier New', monospace;
-  background: #000;
-  color: var(--hud-text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  background: var(--ck-bg);
+  color: var(--ck-text);
   overflow: hidden;
 }
 
@@ -26,3 +37,48 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+/* Shared cockpit utility classes */
+.ck-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 8px;
+  color: var(--ck-dim);
+  letter-spacing: .12em;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.ck-scan {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.04) 3px,
+    rgba(0, 0, 0, 0.04) 4px
+  );
+}
+
+/* Keyframe animations used by inline-styled elements */
+@keyframes ck-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .25; }
+}
+
+@keyframes ck-fade {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ck-pulse-ring {
+  0%   { transform: scale(1);   opacity: .7; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Applied via className when needed */
+.ck-anim-blink { animation: ck-blink 2s ease-in-out infinite; }
+.ck-anim-fade  { animation: ck-fade .2s ease; }
+.ck-pulse-ring { animation: ck-pulse-ring 1.8s ease-out infinite; }

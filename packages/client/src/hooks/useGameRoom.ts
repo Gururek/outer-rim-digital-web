@@ -3,7 +3,10 @@ import { Client, Room } from 'colyseus.js';
 import { useGameStore } from '../stores/gameStore';
 import type { ClientMessage, ServerEvent } from '@outer-rim/shared';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'ws://localhost:2567';
+// Derive hostname from the page origin so remote players connect to the right server.
+// Override with VITE_SERVER_URL env var for staging/production deployments.
+const SERVER_URL = import.meta.env.VITE_SERVER_URL
+  ?? `ws://${window.location.hostname}:2567`;
 const colyseusClient = new Client(SERVER_URL);
 
 export function useGameRoom() {

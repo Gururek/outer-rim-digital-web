@@ -1,100 +1,104 @@
 import type { MapNode } from './types.js';
 
 // ─── GALAXY MAP NODE GRAPH ────────────────────────────────────────────────────
-// Node graph of the Outer Rim — planets, nav points, and maelstrom.
-// All positions relative to a galaxy arc centered at origin.
+// Positions follow the arch/horseshoe layout of the physical board.
+// Outer arc runs left-to-right over the top; inner track cuts across the middle.
+// X: –12 (left) → +12 (right)   Z: –12 (far/top of arch) → +4 (near/opening)
 
 export const MAP_NODES: MapNode[] = [
-  // ── Outer Arc (clockwise from top) ──────────────────────────────────────
+  // ── Outer arc — left arm (bottom → apex) ────────────────────────────────
   {
     id: 1, name: 'Tatooine', planetId: 'tatooine', type: 'PLANET', factionOwner: 'HUTT',
     connectedNodeIds: [2, 3, 4],
     contactSpaces: [{ class: 'WHITE', pipCount: 2 }, { class: 'GREEN', pipCount: 1 }],
-    position: [0, 0, -6],
+    position: [-4.5, 0, -10.5],
   },
+  // ── Outer arc — right arm ────────────────────────────────────────────────
   {
     id: 2, name: 'Rodia', planetId: 'rodia', type: 'PLANET', factionOwner: 'HUTT',
     connectedNodeIds: [1, 4, 5],
     contactSpaces: [{ class: 'WHITE', pipCount: 1 }, { class: 'YELLOW', pipCount: 1 }],
-    position: [8, 0, -8],
+    position: [10.5, 0, 1.5],
   },
   {
     id: 3, name: 'Ryloth', planetId: 'ryloth', type: 'PLANET', factionOwner: 'SYNDICATE',
     connectedNodeIds: [1, 4, 6],
     contactSpaces: [{ class: 'GREEN', pipCount: 1 }, { class: 'ORANGE', pipCount: 1 }],
-    position: [5, 0, -10],
+    position: [-1.5, 0, -11.5],
   },
   {
     id: 4, name: 'Nav Point Aurek', planetId: 'np_aurek', type: 'NAVPOINT', factionOwner: 'NONE',
     connectedNodeIds: [1, 2, 3, 5, 6],
     contactSpaces: [],
-    position: [4, 0, -4],
+    position: [2, 0, -11],
   },
   {
     id: 5, name: 'Mon Cala', planetId: 'mon_cala', type: 'PLANET', factionOwner: 'REBEL',
     connectedNodeIds: [2, 4, 7],
     contactSpaces: [{ class: 'WHITE', pipCount: 1 }, { class: 'GREEN', pipCount: 2 }],
-    position: [10, 0, -2],
+    position: [11, 0, -3],
   },
   {
     id: 6, name: 'Geonosis', planetId: 'geonosis', type: 'PLANET', factionOwner: 'IMPERIAL',
     connectedNodeIds: [3, 4, 8],
     contactSpaces: [{ class: 'YELLOW', pipCount: 2 }],
-    position: [12, 0, -6],
+    position: [5, 0, -9.5],
   },
   {
     id: 7, name: 'Nav Point Besh', planetId: 'np_besh', type: 'NAVPOINT', factionOwner: 'NONE',
     connectedNodeIds: [5, 8, 9],
     contactSpaces: [],
-    position: [7, 0, 2],
+    position: [8.5, 0, -7],
   },
+  // ── Inner track ──────────────────────────────────────────────────────────
   {
     id: 8, name: 'Corellia', planetId: 'corellia', type: 'PLANET', factionOwner: 'IMPERIAL',
     connectedNodeIds: [6, 7, 9, 10],
     contactSpaces: [{ class: 'GREEN', pipCount: 1 }, { class: 'YELLOW', pipCount: 1 }],
-    position: [2, 0, 4],
+    position: [4.5, 0, -3.5],
   },
   {
     id: 9, name: 'Nav Point Cresh', planetId: 'np_cresh', type: 'NAVPOINT', factionOwner: 'NONE',
     connectedNodeIds: [7, 8, 10, 11],
     contactSpaces: [],
-    position: [-2, 0, 6],
+    position: [0, 0, -5],
   },
   {
     id: 10, name: 'Ord Mantell', planetId: 'ord_mantell', type: 'PLANET', factionOwner: 'SYNDICATE',
     connectedNodeIds: [8, 9, 11, 12],
     contactSpaces: [{ class: 'WHITE', pipCount: 2 }, { class: 'ORANGE', pipCount: 1 }],
-    position: [-5, 0, 8],
+    position: [-4.5, 0, -3.5],
   },
   {
     id: 11, name: 'Maelstrom', planetId: 'maelstrom', type: 'MAELSTROM', factionOwner: 'NONE',
     connectedNodeIds: [9, 10, 12],
     contactSpaces: [],
-    position: [-8, 0, 4],
+    position: [0, 0, 0.5],
   },
+  // ── Outer arc — left arm ─────────────────────────────────────────────────
   {
     id: 12, name: 'Nal Hutta', planetId: 'nal_hutta', type: 'PLANET', factionOwner: 'HUTT',
     connectedNodeIds: [10, 11, 13],
     contactSpaces: [{ class: 'GREEN', pipCount: 1 }, { class: 'YELLOW', pipCount: 2 }],
-    position: [-10, 0, 0],
+    position: [-10, 0, 3],
   },
   {
     id: 13, name: 'Nav Point Dorn', planetId: 'np_dorn', type: 'NAVPOINT', factionOwner: 'NONE',
     connectedNodeIds: [12, 14, 15],
     contactSpaces: [],
-    position: [-6, 0, -4],
+    position: [-11.5, 0, -1],
   },
   {
     id: 14, name: 'Kessel', planetId: 'kessel', type: 'PLANET', factionOwner: 'SYNDICATE',
     connectedNodeIds: [13, 15],
     contactSpaces: [{ class: 'YELLOW', pipCount: 1 }, { class: 'ORANGE', pipCount: 1 }],
-    position: [-12, 0, -2],
+    position: [-10.5, 0, -5],
   },
   {
     id: 15, name: 'Nav Point Esk', planetId: 'np_esk', type: 'NAVPOINT', factionOwner: 'NONE',
     connectedNodeIds: [13, 14, 1],
     contactSpaces: [],
-    position: [-4, 0, -8],
+    position: [-7.5, 0, -8.5],
   },
 ];
 

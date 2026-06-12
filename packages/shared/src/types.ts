@@ -194,6 +194,6 @@ export type ServerEvent =
   | { event: 'DICE_ROLLED'; data: { playerId: string; rolls: DiceResult[]; context: string } }
   | { event: 'ENCOUNTER_CARD'; data: { cardId: number; planetId: string } }
   | { event: 'CONTACT_REVEALED'; data: { contactId: number; dataBankCardNumber: number } }
-  | { event: 'COMBAT_RESULT'; data: { winnerId: string; attackerDmg: number; defenderDmg: number } }
+  | { event: 'COMBAT_RESULT'; data: { winnerId: string; attackerDmg: number; defenderDmg: number; rolls: DiceResult[] } }
   | { event: 'PATROL_MOVED'; data: { faction: FactionType; fromNode: number; toNode: number } }
   | { event: 'GAME_OVER'; data: { winnerId: string; fame: number } };

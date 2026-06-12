@@ -1,108 +1,146 @@
 import { useState } from 'react';
 import { useGameStore } from '../../stores/gameStore';
-import type { ClientMessage, MarketDeckType } from '@outer-rim/shared';
+import type { ClientMessage } from '@outer-rim/shared';
 import NavigationTab from './tabs/NavigationTab';
 import MarketTab from './tabs/MarketTab';
 import CargoTab from './tabs/CargoTab';
 import CrewTab from './tabs/CrewTab';
 
+const BOTTOM_H = 270;
+const LEFT_W   = 175;
+const RIGHT_W  = 155;
+
+const TABS = [
+  { id: 'nav',    label: 'NAVIGATION' },
+  { id: 'market', label: 'MARKET'     },
+  { id: 'cargo',  label: 'CARGO'      },
+  { id: 'crew',   label: 'CREW'       },
+] as const;
+
 interface Props {
   onSend: (msg: ClientMessage) => void;
 }
 
-const TABS = [
-  { id: 'nav', label: 'NAV' },
-  { id: 'market', label: 'MKT' },
-  { id: 'cargo', label: 'CGO' },
-  { id: 'crew', label: 'CRW' },
-] as const;
-
 export default function Terminal({ onSend }: Props) {
   const [activeTab, setActiveTab] = useState<string>('nav');
-  const phase = useGameStore(s => s.phase);
+  const phase         = useGameStore(s => s.phase);
   const activePlayerId = useGameStore(s => s.activePlayerId);
-  const mySessionId = useGameStore(s => s.mySessionId);
-
-  const isMyTurn = activePlayerId === mySessionId;
+  const mySessionId   = useGameStore(s => s.mySessionId);
+  const turnNumber    = useGameStore(s => s.turnNumber);
+  const isMyTurn      = activePlayerId === mySessionId;
 
   return (
-    <div style={styles.container}>
+    <div style={S.container}>
       {/* Tab bar */}
-      <div style={styles.tabBar}>
+      <div style={S.tabBar}>
         {TABS.map(tab => (
           <button
             key={tab.id}
             style={{
-              ...styles.tab,
-              ...(activeTab === tab.id ? styles.tabActive : {}),
+              ...S.tabBtn,
+              ...(activeTab === tab.id ? S.tabBtnActive : {}),
             }}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
           </button>
         ))}
-        <div style={styles.statusBar}>
-          {!isMyTurn && <span style={{ color: '#888' }}>Waiting...</span>}
-          {isMyTurn && <span style={{ color: '#00ff88' }}>ACTIVE</span>}
+        {/* Right side of tab bar */}
+        <div style={S.tabFill} />
+        <div style={S.turnInfo}>
+          <span style={S.turnLabel}>TURN {turnNumber}</span>
+          {isMyTurn
+            ? <span style={S.activeLabel} className="ck-anim-blink">▪ YOUR TURN</span>
+            : <span style={S.waitLabel}>WAITING</span>
+          }
         </div>
       </div>
 
       {/* Tab content */}
-      <div style={styles.content}>
-        {activeTab === 'nav' && <NavigationTab onSend={onSend} />}
+      <div style={S.content} className="ck-anim-fade" key={activeTab}>
+        {activeTab === 'nav'    && <NavigationTab onSend={onSend} />}
         {activeTab === 'market' && <MarketTab onSend={onSend} />}
-        {activeTab === 'cargo' && <CargoTab />}
-        {activeTab === 'crew' && <CrewTab />}
+        {activeTab === 'cargo'  && <CargoTab onSend={onSend} />}
+        {activeTab === 'crew'   && <CrewTab />}
       </div>
     </div>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const S: Record<string, React.CSSProperties> = {
   container: {
     position: 'absolute',
-    bottom: '80px',
-    right: '20px',
-    width: '380px',
-    maxHeight: '450px',
-    background: 'rgba(0, 0, 0, 0.85)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '8px',
+    bottom: 0,
+    left: LEFT_W,
+    right: RIGHT_W,
+    height: BOTTOM_H,
+    background: 'var(--ck-bg)',
+    borderTop:   '1px solid var(--ck-border)',
+    borderLeft:  '1px solid var(--ck-border)',
+    borderRight: '1px solid var(--ck-border)',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    fontFamily: "'Courier New', monospace",
+    zIndex: 20,
+    fontFamily: "'Share Tech Mono', monospace",
   },
   tabBar: {
     display: 'flex',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-    background: 'rgba(0, 0, 0, 0.3)',
+    background: 'var(--ck-bg)',
+    borderBottom: '1px solid var(--ck-border)',
+    flexShrink: 0,
   },
-  tab: {
-    padding: '0.5rem 1rem',
-    background: 'none',
+  tabBtn: {
     border: 'none',
-    color: '#666',
+    borderRight: '1px solid var(--ck-border)',
+    background: 'transparent',
+    fontFamily: "'Orbitron', sans-serif",
+    fontSize: 9,
+    letterSpacing: '.1em',
+    color: 'var(--ck-dim)',
+    padding: '8px 14px',
     cursor: 'pointer',
-    fontSize: '0.7rem',
-    letterSpacing: '0.1em',
-    fontFamily: "'Courier New', monospace",
-    transition: 'color 0.2s',
+    transition: 'color .15s',
   },
-  tabActive: {
-    color: '#00ffcc',
-    borderBottom: '2px solid #00ffcc',
+  tabBtnActive: {
+    background: 'var(--ck-panel)',
+    color: 'var(--ck-accent)',
+    borderBottom: '1px solid var(--ck-panel)',
+    marginBottom: -1,
   },
-  statusBar: {
-    marginLeft: 'auto',
-    padding: '0.5rem 0.75rem',
-    fontSize: '0.65rem',
+  tabFill: {
+    flex: 1,
+    borderBottom: '1px solid var(--ck-border)',
+  },
+  turnInfo: {
+    padding: '8px 12px',
     display: 'flex',
     alignItems: 'center',
+    gap: 10,
+    borderLeft: '1px solid var(--ck-border)',
+    flexShrink: 0,
+  },
+  turnLabel: {
+    fontFamily: "'Orbitron', sans-serif",
+    fontSize: 8,
+    color: 'var(--ck-dim)',
+    letterSpacing: '.1em',
+  },
+  activeLabel: {
+    fontFamily: "'Orbitron', sans-serif",
+    fontSize: 8,
+    color: 'var(--ck-green)',
+    letterSpacing: '.08em',
+  },
+  waitLabel: {
+    fontFamily: "'Orbitron', sans-serif",
+    fontSize: 8,
+    color: 'var(--ck-dim)',
+    letterSpacing: '.08em',
   },
   content: {
-    padding: '1rem',
+    flex: 1,
     overflowY: 'auto',
-    maxHeight: '380px',
+    padding: '12px 14px',
   },
 };

@@ -247,20 +247,12 @@ export class TurnMachine {
     }
 
     this.room.broadcastEvent({
-      event: 'DICE_ROLLED',
-      data: {
-        playerId: sessionId,
-        rolls: [playerRoll, patrolRoll],
-        context: 'PATROL_COMBAT'
-      }
-    });
-
-    this.room.broadcastEvent({
       event: 'COMBAT_RESULT',
       data: {
         winnerId: playerWins ? sessionId : 'patrol',
         attackerDmg: playerRoll.totalDamage,
-        defenderDmg: patrolRoll.totalDamage
+        defenderDmg: patrolRoll.totalDamage,
+        rolls: [playerRoll, patrolRoll],
       }
     });
 

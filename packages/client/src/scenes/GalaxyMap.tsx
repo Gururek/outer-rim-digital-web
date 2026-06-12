@@ -1,14 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration } from '@react-three/postprocessing';
 import { Vector2 } from 'three';
-import { MAP_NODES, findPath } from '@outer-rim/shared';
+import { MAP_NODES } from '@outer-rim/shared';
 import PlanetNode from './nodes/PlanetNode';
 import NavPointNode from './nodes/NavPointNode';
 import PlayerShip from './ships/PlayerShip';
 import PatrolShip from './ships/PatrolShip';
 import HyperspaceLines from './fx/HyperspaceLines';
+import CameraAnimator from './fx/CameraAnimator';
+import NebulaBackground from './fx/NebulaBackground';
 import { useGameStore } from '../stores/gameStore';
 
 interface GalaxyMapProps {
@@ -21,6 +23,7 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
   const mySessionId = useGameStore(s => s.mySessionId);
   const players = useGameStore(s => s.players);
   const moveHighlight = useGameStore(s => s.moveHighlight);
+  const controlsRef = useRef<any>(null);
 
   const myPlayer = players.get(mySessionId);
   const isMyTurn = activePlayerId === mySessionId;
@@ -54,7 +57,7 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
 
   return (
     <Canvas
-      camera={{ position: [0, 18, 8], fov: 55 }}
+      camera={{ position: [0, 20, 5], fov: 65 }}
       gl={{ antialias: true, alpha: false }}
       style={{ position: 'absolute', inset: 0 }}
     >
@@ -64,6 +67,9 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
 
       {/* Space background */}
       <Stars radius={400} depth={80} count={18000} factor={7} fade />
+
+      {/* Nebula floor + arch tube */}
+      <NebulaBackground />
 
       {/* Hyperspace lane connections */}
       <HyperspaceLines nodes={MAP_NODES} />
@@ -102,11 +108,16 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
 
       {/* Camera controls */}
       <OrbitControls
+        ref={controlsRef}
+        target={[0, 0, -4]}
         enablePan={false}
         minDistance={10}
         maxDistance={40}
         maxPolarAngle={Math.PI / 2.2}
       />
+
+      {/* Cinematic camera animation */}
+      <CameraAnimator controlsRef={controlsRef} />
 
       {/* Post-processing */}
       <EffectComposer>

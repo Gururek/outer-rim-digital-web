@@ -1,200 +1,123 @@
 import { useGameStore } from '../stores/gameStore';
 import { CHARACTERS } from '@outer-rim/shared';
 
-interface GameOverScreenProps {
+interface Props {
   onReturnToLobby: () => void;
 }
 
-export default function GameOverScreen({ onReturnToLobby }: GameOverScreenProps) {
+export default function GameOverScreen({ onReturnToLobby }: Props) {
   const gameOver = useGameStore(s => s.gameOver);
-  const players = useGameStore(s => s.players);
-  const mySessionId = useGameStore(s => s.mySessionId);
+  const players  = useGameStore(s => s.players);
+  const myId     = useGameStore(s => s.mySessionId);
 
-  const isWinner = gameOver.winnerId === mySessionId;
-  const char = CHARACTERS.find(c => {
-    const winner = players.get(gameOver.winnerId);
-    return winner ? c.id === winner.characterId : false;
-  });
+  const isWinner = gameOver.winnerId === myId;
+  const winner   = players.get(gameOver.winnerId);
+  const char     = CHARACTERS.find(c => winner && c.id === winner.characterId);
 
-  const sortedPlayers = Array.from(players.entries())
-    .sort(([, a], [, b]) => b.fame - a.fame);
+  const sorted = Array.from(players.entries()).sort(([, a], [, b]) => b.fame - a.fame);
 
   return (
-    <div style={styles.backdrop}>
-      <div style={styles.card}>
-        <div style={styles.borderGlow} />
-        <h1 style={styles.title}>
-          {isWinner ? 'VICTORY' : 'GAME OVER'}
-        </h1>
-        <div style={styles.winnerSection}>
-          <div style={styles.winnerName}>
+    <div style={S.backdrop}>
+      <div className="ck-scan" />
+      <div style={S.card}>
+        <div style={{ height: 3, background: isWinner ? 'var(--ck-gold)' : 'var(--ck-accent)', opacity: .8 }} />
+        <div style={S.body}>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: '2rem', color: isWinner ? 'var(--ck-gold)' : 'var(--ck-text)', letterSpacing: '.3em', fontWeight: 600, marginBottom: '1.2rem' }}>
+            {isWinner ? 'VICTORY' : 'GAME OVER'}
+          </div>
+
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: '1.2rem', color: 'var(--ck-val)', letterSpacing: '.08em', marginBottom: '.25rem' }}>
             {gameOver.winnerName || 'Unknown'}
           </div>
           {char && (
-            <div style={styles.winnerChar}>
+            <div style={{ fontSize: 9, color: 'var(--ck-dim)', marginBottom: '1.2rem', fontFamily: "'Share Tech Mono',monospace" }}>
               {char.name} · {char.personalGoal}
             </div>
           )}
-          <div style={styles.fameDisplay}>
-            <span style={styles.fameLabel}>FINAL FAME</span>
-            <span style={styles.fameValue}>{gameOver.winnerFame}</span>
-            <span style={styles.fameMax}>/ {10}</span>
+
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 8, marginBottom: '1.5rem' }}>
+            <span className="ck-label">FINAL FAME</span>
+            <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: '2.5rem', color: 'var(--ck-gold)', fontWeight: 600 }}>
+              {gameOver.winnerFame}
+            </span>
           </div>
+
+          <div style={S.divider} />
+
+          <div className="ck-label" style={{ marginBottom: 8 }}>FINAL STANDINGS</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: '1.5rem' }}>
+            {sorted.map(([id, p], i) => (
+              <div key={id} style={{
+                ...S.standRow,
+                background: id === gameOver.winnerId ? 'rgba(245,160,32,.08)' : i % 2 ? 'var(--ck-panel)' : 'transparent',
+                borderColor: id === gameOver.winnerId ? 'rgba(245,160,32,.2)' : 'var(--ck-border)',
+              }}>
+                <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 10, color: 'var(--ck-gold)', width: 20 }}>#{i + 1}</span>
+                <span style={{ flex: 1, color: 'var(--ck-val)', fontSize: 11 }}>{p.displayName}</span>
+                <span style={{ color: 'var(--ck-dim)', fontSize: 9, marginRight: 10 }}>
+                  {CHARACTERS.find(c => c.id === p.characterId)?.name ?? '—'}
+                </span>
+                <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 10, color: 'var(--ck-gold)' }}>
+                  {p.fame} FP
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <button style={S.lobbyBtn} onClick={onReturnToLobby}>
+            RETURN TO LOBBY
+          </button>
         </div>
-
-        <div style={styles.divider} />
-
-        <h2 style={styles.standingsTitle}>FINAL STANDINGS</h2>
-        <div style={styles.standings}>
-          {sortedPlayers.map(([id, p], i) => (
-            <div key={id} style={{
-              ...styles.standingRow,
-              background: id === gameOver.winnerId
-                ? 'rgba(255, 215, 0, 0.12)'
-                : i % 2 ? 'rgba(255,255,255,0.03)' : 'transparent',
-            }}>
-              <span style={styles.rank}>#{i + 1}</span>
-              <span style={styles.pName}>{p.displayName}</span>
-              <span style={styles.pChar}>
-                {CHARACTERS.find(c => c.id === p.characterId)?.name ?? '—'}
-              </span>
-              <span style={styles.pFame}>{p.fame} FP</span>
-            </div>
-          ))}
-        </div>
-
-        <button style={styles.lobbyBtn} onClick={onReturnToLobby}>
-          RETURN TO LOBBY
-        </button>
+        <div style={{ height: 3, background: isWinner ? 'var(--ck-gold)' : 'var(--ck-accent)', opacity: .8 }} />
       </div>
     </div>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const S: Record<string, React.CSSProperties> = {
   backdrop: {
-    position: 'fixed', inset: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(0, 0, 0, 0.85)',
+    position: 'fixed',
+    inset: 0,
     zIndex: 1000,
-    fontFamily: 'monospace',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(6,13,24,.9)',
+    fontFamily: "'Share Tech Mono', monospace",
   },
   card: {
-    position: 'relative',
-    background: 'linear-gradient(180deg, #0a0a1a 0%, #0d0d2b 100%)',
-    border: '2px solid rgba(255, 215, 0, 0.4)',
-    borderRadius: 12,
-    padding: '2.5rem 3rem',
-    minWidth: 420,
-    maxWidth: 560,
-    boxShadow: '0 0 40px rgba(255, 215, 0, 0.15)',
+    background: 'var(--ck-panel)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 6,
+    width: 420,
+    maxWidth: '92vw',
+    overflow: 'hidden',
+  },
+  body: {
+    padding: '2rem 2.5rem',
     textAlign: 'center',
-  },
-  borderGlow: {
-    position: 'absolute', top: -2, left: -2, right: -2, bottom: -2,
-    borderRadius: 12,
-    background: 'linear-gradient(135deg, rgba(255,215,0,0.2), transparent 50%, rgba(255,215,0,0.1))',
-    zIndex: -1,
-  },
-  title: {
-    fontSize: '2.2rem',
-    color: '#ffd700',
-    fontWeight: 900,
-    letterSpacing: '0.3em',
-    margin: '0 0 1.5rem 0',
-    textShadow: '0 0 20px rgba(255, 215, 0, 0.3)',
-  },
-  winnerSection: {
-    marginBottom: '1.5rem',
-  },
-  winnerName: {
-    fontSize: '1.6rem',
-    color: '#ffd700',
-    fontWeight: 'bold',
-    letterSpacing: '0.05em',
-  },
-  winnerChar: {
-    fontSize: '0.85rem',
-    color: '#888',
-    marginTop: '0.3rem',
-  },
-  fameDisplay: {
-    marginTop: '1rem',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'baseline',
-    gap: '0.4rem',
-  },
-  fameLabel: {
-    fontSize: '0.7rem',
-    color: '#666',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-  },
-  fameValue: {
-    fontSize: '2.5rem',
-    color: '#ffd700',
-    fontWeight: 900,
-  },
-  fameMax: {
-    fontSize: '1rem',
-    color: '#555',
   },
   divider: {
     height: 1,
-    background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.2), transparent)',
-    margin: '1.5rem 0',
+    background: 'linear-gradient(90deg, transparent, var(--ck-border), transparent)',
+    margin: '1.2rem 0 1rem',
   },
-  standingsTitle: {
-    fontSize: '0.7rem',
-    color: '#555',
-    textTransform: 'uppercase',
-    letterSpacing: '0.2em',
-    marginBottom: '0.8rem',
-  },
-  standings: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.3rem',
-  },
-  standingRow: {
+  standRow: {
     display: 'flex',
     alignItems: 'center',
-    padding: '0.4rem 0.8rem',
-    borderRadius: 4,
-    fontSize: '0.85rem',
-  },
-  rank: {
-    width: 28,
-    color: '#ffd700',
-    fontWeight: 'bold',
-  },
-  pName: {
-    flex: 1,
-    color: '#ccc',
-    textAlign: 'left',
-  },
-  pChar: {
-    color: '#666',
-    marginRight: '1rem',
-    fontSize: '0.75rem',
-  },
-  pFame: {
-    color: '#ffd700',
-    fontWeight: 'bold',
-    width: 50,
-    textAlign: 'right',
+    padding: '5px 10px',
+    borderRadius: 3,
+    border: '1px solid',
   },
   lobbyBtn: {
-    marginTop: '2rem',
-    padding: '0.7rem 2rem',
+    padding: '8px 24px',
     background: 'transparent',
-    border: '1px solid rgba(255, 215, 0, 0.3)',
-    borderRadius: 6,
-    color: '#ffd700',
-    fontSize: '0.85rem',
-    fontWeight: 'bold',
-    letterSpacing: '0.15em',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 4,
+    color: 'var(--ck-text)',
+    fontFamily: "'Orbitron',sans-serif",
+    fontSize: 9,
+    letterSpacing: '.15em',
     cursor: 'pointer',
   },
 };
