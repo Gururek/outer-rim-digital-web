@@ -150,6 +150,7 @@ function PlayerShips() {
             displayName: player.displayName,
             currentNodeId: player.currentNodeId,
             characterId: player.characterId,
+            shipId: player.shipId,
           }}
           isLocalPlayer={sessionId === mySessionId}
         />

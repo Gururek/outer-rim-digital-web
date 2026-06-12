@@ -1,6 +1,52 @@
 import { useState } from 'react';
 import { CHARACTERS, SHIPS } from '@outer-rim/shared';
+import type { CharacterDefinition } from '@outer-rim/shared';
 import SettingsPanel from './SettingsPanel';
+
+// ─── Character portrait (procedural SVG — no image files needed) ──────────────
+const SKILL_COLOR: Record<string, string> = {
+  INFLUENCE: '#f1c40f', STRENGTH:  '#e74c3c', KNOWLEDGE: '#1abc9c',
+  TACTICS:   '#e67e22', PILOTING:  '#3498db', STEALTH:   '#9b59b6', TECH: '#00bcd4',
+};
+const FACTION_ACCENT: Record<string, string> = {
+  IMPERIAL: '#1a5276', REBEL: '#2e7d32', HUTT: '#d4a017', SYNDICATE: '#8b0000',
+};
+
+function CharacterPortrait({ char }: { char: CharacterDefinition }) {
+  const primary  = SKILL_COLOR[char.skills[0]] ?? '#4da6ff';
+  const faction  = char.startingReputation?.faction;
+  const fAccent  = faction ? (FACTION_ACCENT[faction] ?? '#333') : '#2a3a4a';
+  const initials = char.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const hp       = Math.min(char.maxHealth, 9);
+  const id       = char.id;
+  return (
+    <svg width="60" height="60" viewBox="0 0 60 60" style={{ flexShrink: 0 }}>
+      <defs>
+        <radialGradient id={`rg_${id}`} cx="50%" cy="38%" r="65%">
+          <stop offset="0%"   stopColor={primary} stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#060d18"  stopOpacity="1"   />
+        </radialGradient>
+      </defs>
+      {/* Hex background */}
+      <polygon points="30,2 58,16 58,44 30,58 2,44 2,16" fill={`url(#rg_${id})`} />
+      {/* Hex border */}
+      <polygon points="30,2 58,16 58,44 30,58 2,44 2,16" fill="none" stroke={primary} strokeWidth="1.4" opacity="0.55" />
+      {/* Faction colour band at top */}
+      <polygon points="30,2 58,16 42,16 18,16 2,16" fill={fAccent} opacity="0.75" />
+      {/* Initials */}
+      <text x="30" y="35" textAnchor="middle" dominantBaseline="middle"
+        fontFamily="'Orbitron',sans-serif" fontSize="19" fontWeight="bold"
+        fill={primary} fillOpacity="0.92">{initials}</text>
+      {/* Health dots */}
+      <g transform={`translate(30,50)`}>
+        {Array.from({ length: hp }).map((_, i) => (
+          <circle key={i} cx={(i - (hp - 1) / 2) * 5.5} cy={0} r={2}
+            fill={primary} fillOpacity="0.65" />
+        ))}
+      </g>
+    </svg>
+  );
+}
 
 interface Props {
   onConnect: (options?: Record<string, unknown>) => Promise<string | undefined>;
@@ -67,13 +113,27 @@ export default function LobbyScreen({ onConnect, onJoin }: Props) {
           </select>
           {selectedChar && (
             <div style={S.charDetail}>
-              <div style={S.skillRow}>
-                {selectedChar.skills.map(s => (
-                  <span key={s} style={S.skillTag}>{s}</span>
-                ))}
-              </div>
-              <div style={{ fontSize: 9, color: 'var(--ck-dim)', marginTop: 4, fontStyle: 'italic' }}>
-                {selectedChar.personalGoal}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <CharacterPortrait char={selectedChar} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={S.skillRow}>
+                    {selectedChar.skills.map(s => (
+                      <span key={s} style={{ ...S.skillTag, background: `${SKILL_COLOR[s]}18`, borderColor: `${SKILL_COLOR[s]}44`, color: SKILL_COLOR[s] ?? 'var(--ck-accent)' }}>{s}</span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 8, color: 'var(--ck-dim)', marginTop: 5, lineHeight: 1.4, fontStyle: 'italic' }}>
+                    {selectedChar.personalGoal}
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: 8, color: 'var(--ck-dim)' }}>
+                    HP <span style={{ color: 'var(--ck-val)' }}>{selectedChar.maxHealth}</span>
+                    {'  '}FIGHT <span style={{ color: 'var(--ck-val)' }}>{selectedChar.groundCombatValue}</span>
+                    {selectedChar.startingReputation && (
+                      <>{'  '}<span style={{ color: FACTION_ACCENT[selectedChar.startingReputation.faction] ?? 'var(--ck-dim)' }}>
+                        {selectedChar.startingReputation.faction}+
+                      </span></>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
