@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Howl } from 'howler';
 import { useGameStore } from '../stores/gameStore';
 import { useSettingsStore } from '../stores/settingsStore';
 
@@ -7,7 +8,7 @@ function getVolumes() {
   return { sfx: s.sfxVolume, music: s.musicVolume };
 }
 
-// ─── Web Audio context ────────────────────────────────────────────────────────
+// ─── Web Audio context (SFX only) ─────────────────────────────────────────────
 let _ctx: AudioContext | null = null;
 function getCtx(): AudioContext {
   if (!_ctx || _ctx.state === 'closed') _ctx = new AudioContext();
@@ -15,7 +16,6 @@ function getCtx(): AudioContext {
   return _ctx;
 }
 
-// ─── One-shot SFX ─────────────────────────────────────────────────────────────
 function synth(opts: {
   freq: number; freq2?: number; dur: number;
   type?: OscillatorType; vol?: number; attack?: number; delay?: number;
@@ -55,118 +55,63 @@ export const sfx = {
   contactReveal:() => { synth({ freq: 300, freq2: 600, dur: 0.4, vol: 0.1, attack: 0.05 }); synth({ freq: 600, dur: 0.6, vol: 0.08, attack: 0.1, delay: 0.35 }); },
 };
 
-// ─── Procedural faction music (Web Audio drones, no MP3s required) ────────────
-// Each track: slow-moving harmonic drone built from 4 detuned oscillators + LFO
-// tremolo. Faction identity comes from root note choice, mode, and timbre.
-
-interface DroneSpec { freq: number; type: OscillatorType; gain: number; detune: number; }
-interface DroneTrack { oscs: DroneSpec[]; lfoRate: number; lfoDepth: number; }
-
-const DRONE_TRACKS: Record<string, DroneTrack> = {
-  MENU: {  // Open 5th drone — neutral, spacious
-    oscs: [
-      { freq:  55.00, type: 'sine',     gain: 0.060, detune:   0 }, // A1
-      { freq:  82.41, type: 'sine',     gain: 0.040, detune:  -5 }, // E2 (5th)
-      { freq: 110.00, type: 'sine',     gain: 0.030, detune:   7 }, // A2
-      { freq: 164.81, type: 'triangle', gain: 0.020, detune:  -3 }, // E3
-    ],
-    lfoRate: 0.10, lfoDepth: 0.30,
-  },
-  IMPERIAL: {  // Sawtooth minor — dark, ominous, machine-like
-    oscs: [
-      { freq:  41.20, type: 'sawtooth', gain: 0.055, detune:   0 }, // E1
-      { freq:  55.00, type: 'sawtooth', gain: 0.040, detune:  -8 }, // A1
-      { freq:  61.74, type: 'sawtooth', gain: 0.030, detune:   5 }, // Bb1 (tension)
-      { freq:  82.41, type: 'sine',     gain: 0.035, detune:   0 }, // E2
-    ],
-    lfoRate: 0.04, lfoDepth: 0.45,
-  },
-  REBEL: {  // Major 6th — hopeful, organic, human
-    oscs: [
-      { freq:  49.00, type: 'sine',     gain: 0.055, detune:   0 }, // G1
-      { freq:  73.42, type: 'sine',     gain: 0.040, detune:  -3 }, // D2 (5th)
-      { freq:  98.00, type: 'sine',     gain: 0.030, detune:   5 }, // G2
-      { freq: 123.47, type: 'triangle', gain: 0.025, detune:  -5 }, // B2 (maj 3rd)
-    ],
-    lfoRate: 0.18, lfoDepth: 0.20,
-  },
-  HUTT: {  // Chromatic tritone — exotic, sinister, alien
-    oscs: [
-      { freq:  55.00, type: 'sawtooth', gain: 0.050, detune:   0 }, // A1
-      { freq:  65.41, type: 'sawtooth', gain: 0.040, detune:  10 }, // C2 (m3)
-      { freq:  77.78, type: 'sawtooth', gain: 0.030, detune:  -8 }, // Eb2 (tritone)
-      { freq: 116.54, type: 'triangle', gain: 0.025, detune:   5 }, // Bb2
-    ],
-    lfoRate: 0.07, lfoDepth: 0.38,
-  },
-  SYNDICATE: {  // Square minor 7th — jazzy, tense, underground
-    oscs: [
-      { freq:  36.71, type: 'square',   gain: 0.045, detune:   0 }, // D1
-      { freq:  55.00, type: 'square',   gain: 0.035, detune: -10 }, // A1
-      { freq:  65.41, type: 'sawtooth', gain: 0.030, detune:   8 }, // C2 (m7)
-      { freq:  87.31, type: 'triangle', gain: 0.025, detune:  -5 }, // F2
-    ],
-    lfoRate: 0.13, lfoDepth: 0.30,
-  },
+// ─── Faction music via Howler ─────────────────────────────────────────────────
+// Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0
+// http://creativecommons.org/licenses/by/4.0/
+// Served via Internet Archive CDN (CORS: access-control-allow-origin: *)
+const FACTION_TRACKS: Record<string, string> = {
+  MENU:      'https://archive.org/download/Incompetech/mp3-royaltyfree/Atlantean%20Twilight.mp3',
+  IMPERIAL:  'https://archive.org/download/Incompetech/mp3-royaltyfree/BlackVortex.mp3',
+  REBEL:     'https://archive.org/download/Incompetech/mp3-royaltyfree/Achilles.mp3',
+  HUTT:      'https://archive.org/download/Incompetech/mp3-royaltyfree/Baba%20Yaga.mp3',
+  SYNDICATE: 'https://archive.org/download/Incompetech/mp3-royaltyfree/Apprehension.mp3',
+  // NONE patrol uses MENU track
 };
 
-type DroneState = { key: string; gain: GainNode; oscs: OscillatorNode[]; lfo: OscillatorNode };
-let _drone: DroneState | null = null;
+const _howls: Partial<Record<string, Howl>> = {};
 
-function stopDrone(fadeMs = 1500) {
-  if (!_drone) return;
-  const { gain, oscs, lfo } = _drone;
-  try {
-    const ctx = getCtx();
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + Math.max(fadeMs / 1000, 0.05));
-  } catch { /* context may be suspended */ }
-  const cleanup = () => {
-    oscs.forEach(o => { try { o.stop(); o.disconnect(); } catch {} });
-    try { lfo.stop(); lfo.disconnect(); } catch {}
-    try { gain.disconnect(); } catch {}
-  };
-  if (fadeMs > 0) setTimeout(cleanup, fadeMs + 150);
-  else cleanup();
-  _drone = null;
+function getHowl(key: string): Howl {
+  if (!_howls[key]) {
+    _howls[key] = new Howl({
+      src: [FACTION_TRACKS[key] ?? FACTION_TRACKS.MENU],
+      loop: true,
+      volume: 0,
+      html5: true,
+      onloaderror: () => { /* silently ignore — music is non-critical */ },
+    });
+  }
+  return _howls[key]!;
 }
 
-function startDrone(key: string, vol: number) {
-  if (_drone?.key === key) return;
-  if (vol <= 0) { stopDrone(); return; }
-  const cfg = DRONE_TRACKS[key];
-  if (!cfg) return;
+let _currentTrack: string | null = null;
 
-  stopDrone(1200);
+function crossfadeTo(key: string, vol: number) {
+  const trackKey = FACTION_TRACKS[key] ? key : 'MENU';
+  if (_currentTrack === trackKey) return;
 
-  const ctx = getCtx();
-  const master = ctx.createGain();
-  master.gain.setValueAtTime(0, ctx.currentTime);
-  master.gain.linearRampToValueAtTime(vol, ctx.currentTime + 2.0);
-  master.connect(ctx.destination);
+  if (_currentTrack) {
+    const old = getHowl(_currentTrack);
+    old.fade(old.volume() as number, 0, 1500);
+    setTimeout(() => old.pause(), 1600);
+  }
 
-  const lfo = ctx.createOscillator();
-  const lfoGain = ctx.createGain();
-  lfo.type = 'sine';
-  lfo.frequency.value = cfg.lfoRate;
-  lfoGain.gain.value = cfg.lfoDepth * vol * 0.4;
-  lfo.connect(lfoGain);
-  lfoGain.connect(master.gain);
-  lfo.start();
+  _currentTrack = trackKey;
+  const next = getHowl(trackKey);
+  next.volume(0);
+  if (!(next as any).playing()) next.play();
+  next.fade(0, vol, 1500);
+}
 
-  const oscs: OscillatorNode[] = cfg.oscs.map(spec => {
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.type = spec.type;
-    osc.frequency.value = spec.freq;
-    osc.detune.value = spec.detune;
-    g.gain.value = spec.gain;
-    osc.connect(g);
-    g.connect(master);
-    osc.start();
-    return osc;
-  });
+function setMusicVolume(vol: number) {
+  if (_currentTrack) {
+    const h = _howls[_currentTrack];
+    if ((h as any)?.playing()) h?.volume(vol);
+  }
+}
 
-  _drone = { key, gain: master, oscs, lfo };
+function stopAllMusic() {
+  Object.values(_howls).forEach(h => h?.stop());
+  _currentTrack = null;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -177,7 +122,7 @@ export function useAudio() {
   const musicVolume = useSettingsStore(s => s.musicVolume);
   const prevType    = useRef('');
 
-  // SFX triggers on cinematic events
+  // SFX on cinematic events
   useEffect(() => {
     if (!cinematic.active) return;
     if (cinematic.type === prevType.current) return;
@@ -202,26 +147,22 @@ export function useAudio() {
 
   useEffect(() => { if (!cinematic.active) prevType.current = ''; }, [cinematic.active]);
 
-  // Faction music — pick dominant faction patrol, fall back to MENU
+  // Faction music — play track matching dominant patrol
   useEffect(() => {
     if (phase === 'WAITING_FOR_PLAYERS') return;
+    if (musicVolume <= 0) { stopAllMusic(); return; }
     const dominated = (Object.keys(patrolNodes) as string[])
       .filter(k => k !== 'NONE' && patrolNodes[k as keyof typeof patrolNodes] >= 0);
     const track = dominated.length > 0 ? dominated[0] : 'MENU';
-    try { startDrone(track, musicVolume); } catch { /* ignore */ }
+    try { crossfadeTo(track, musicVolume); } catch { /* ignore */ }
   }, [patrolNodes, phase, musicVolume]);
 
-  // Ramp gain when volume slider changes without restarting the drone
+  // Live volume update when slider moves
   useEffect(() => {
-    if (!_drone) return;
-    try {
-      const ctx = getCtx();
-      _drone.gain.gain.cancelScheduledValues(ctx.currentTime);
-      _drone.gain.gain.setTargetAtTime(musicVolume, ctx.currentTime, 0.3);
-    } catch { /* ignore */ }
+    setMusicVolume(musicVolume);
   }, [musicVolume]);
 
-  useEffect(() => () => stopDrone(0), []);
+  useEffect(() => () => stopAllMusic(), []);
 
   return sfx;
 }
