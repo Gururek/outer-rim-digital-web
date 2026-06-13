@@ -183,19 +183,19 @@ export const sfx = {
 
 // ─── Faction music via Howler ─────────────────────────────────────────────────
 // Drop Star Wars MP3s in packages/client/public/audio/ to override CDN fallbacks:
-//   MENU.mp3      → Star Wars Main Theme / Binary Sunset (Force Theme)
+//   MENU.mp3      → Star Wars Main Theme (John Williams)
 //   IMPERIAL.mp3  → Imperial March (Darth Vader's Theme)
-//   REBEL.mp3     → Main Title / Battle of Yavin
-//   HUTT.mp3      → Cantina Band (Mad About Me) / Jabba's Theme
-//   SYNDICATE.mp3 → Duel of the Fates / Betrayal theme
+//   REBEL.mp3     → Battle of Yavin (X-Wings / Use the Force)
+//   HUTT.mp3      → Cantina Band (Mad About Me)
+//   SYNDICATE.mp3 → Duel of the Fates (Phantom Menace)
 const LOCAL = (key: string) => `/audio/${key}.mp3`;
 
 const CDN_FALLBACK: Record<string, string> = {
-  MENU:      'https://archive.org/download/Incompetech/mp3-royaltyfree/Atlantean%20Twilight.mp3',
-  IMPERIAL:  'https://archive.org/download/Incompetech/mp3-royaltyfree/BlackVortex.mp3',
-  REBEL:     'https://archive.org/download/Incompetech/mp3-royaltyfree/Achilles.mp3',
-  HUTT:      'https://archive.org/download/Incompetech/mp3-royaltyfree/Baba%20Yaga.mp3',
-  SYNDICATE: 'https://archive.org/download/Incompetech/mp3-royaltyfree/Apprehension.mp3',
+  MENU:      'https://archive.org/download/tvtunes_7011/Star%20Wars%20-%20Main%20Theme.mp3',
+  IMPERIAL:  'https://archive.org/download/tvtunes_12997/Star%20Wars%20-%20Imperial%20March.mp3',
+  REBEL:     'https://archive.org/download/0413BinarySunsetAlternate_201707/0510%20The%20Battle%20Of%20Yavin%20(Launch%20From%20The%20Fourth%20Moon%20%20X-Wings%20Draw%20Fire%20%20Use%20The%20Force).mp3',
+  HUTT:      'https://archive.org/download/cantina-band-star-wars/Cantina%20Band%20(Star%20Wars).mp3',
+  SYNDICATE: 'https://archive.org/download/star-wars-episode-1-soundtrack-duel-of-the-fates/star-wars-episode-1-soundtrack-duel-of-the-fates.mp3',
 };
 
 const _howls: Partial<Record<string, Howl>> = {};
