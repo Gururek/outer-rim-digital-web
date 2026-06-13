@@ -5,12 +5,23 @@ import { MAP_NODES } from '@outer-rim/shared';
 import gsap from 'gsap';
 import type { Vector3 } from 'three';
 
+const WIDE = { x: 0, y: 20, z: 5 };
+
+// Per-faction approach angle for Phase 2 of HYPERSPACE_TRAVEL.
+// Offsets are relative to the destination node position.
+const APPROACH: Record<string, { ox: number; oy: number; oz: number; dur: number }> = {
+  IMPERIAL:  { ox:  0.0, oy: 14, oz: 3.0, dur: 0.65 }, // steep overhead — authoritative
+  REBEL:     { ox:  3.5, oy:  7, oz: 3.5, dur: 0.50 }, // banking side sweep — dynamic
+  HUTT:      { ox: -2.0, oy:  5, oz: 4.5, dur: 0.75 }, // low and slow — ponderous
+  SYNDICATE: { ox: -3.0, oy:  6, oz: 3.0, dur: 0.50 }, // sharp far-side bank — aggressive
+  NONE:      { ox:  0.0, oy:  6, oz: 3.5, dur: 0.40 }, // quick flyby for nav points
+  MAELSTROM: { ox:  0.0, oy:  3, oz: 5.0, dur: 0.80 }, // eerie low pass
+};
+
 interface Props {
   controlsRef: React.MutableRefObject<{ enabled: boolean; target: Vector3; update(): void } | null>;
 }
 
-// Stable overview camera position (matches GalaxyMap initial camera + orbit target)
-const WIDE = { x: 0, y: 20, z: 5 };
 
 export default function CameraAnimator({ controlsRef }: Props) {
   const { camera } = useThree();
@@ -51,10 +62,12 @@ export default function CameraAnimator({ controlsRef }: Props) {
           onUpdate: () => camera.lookAt(dx, 0, dz),
         });
 
-        // Phase 2 (0.85–1.5s, overlay fading): planet approach shot — medium orbit
+        // Phase 2: faction-specific approach shot
+        const apKey = destNode.type === 'MAELSTROM' ? 'MAELSTROM' : (destNode.factionOwner ?? 'NONE');
+        const ap = APPROACH[apKey] ?? APPROACH.NONE;
         tl.to(camera.position, {
-          x: dx + 1.5, y: 9, z: dz + 4.5,
-          duration: 0.65,
+          x: dx + ap.ox, y: ap.oy, z: dz + ap.oz,
+          duration: ap.dur,
           ease: 'power1.out',
           onUpdate: () => camera.lookAt(dx, 0, dz),
         });
@@ -76,6 +89,42 @@ export default function CameraAnimator({ controlsRef }: Props) {
           onUpdate: () => camera.lookAt(0, 0, -4),
           onComplete: resetControls,
         });
+      }
+    }
+
+    // ── FORCED_PATROL — swing to player's node, then pull back ─────────────
+    if (cinematic.type === 'FORCED_PATROL') {
+      gsap.killTweensOf(camera.position);
+      const { players, mySessionId } = useGameStore.getState();
+      const myPlayer = players.get(mySessionId);
+      const node = myPlayer ? MAP_NODES.find(n => n.id === myPlayer.currentNodeId) : null;
+
+      if (controlsRef.current) controlsRef.current.enabled = false;
+      const resetControls = () => {
+        const ctrl = controlsRef.current;
+        if (ctrl) { ctrl.target.set(0, 0, -4); ctrl.update(); ctrl.enabled = true; }
+      };
+
+      const tl = gsap.timeline();
+
+      if (node) {
+        const [nx, , nz] = node.position;
+        tl.to(camera.position, {
+          x: nx, y: 8, z: nz + 5,
+          duration: 0.9,
+          ease: 'power2.inOut',
+          onUpdate: () => camera.lookAt(nx, 0, nz),
+        });
+        tl.to(camera.position, {
+          x: WIDE.x, y: WIDE.y, z: WIDE.z,
+          duration: 1.4,
+          ease: 'power2.inOut',
+          delay: 0.5,
+          onUpdate: () => camera.lookAt(0, 0, -4),
+          onComplete: resetControls,
+        });
+      } else {
+        tl.to(camera.position, { x: WIDE.x, y: WIDE.y, z: WIDE.z, duration: 1.2, ease: 'power2.out', onComplete: resetControls });
       }
     }
 

@@ -12,8 +12,12 @@ export default function CinematicOverlay({ onDismiss }: Props) {
   const [text,    setText]    = useState('');
 
   useEffect(() => {
-    // CONTACT_REVEALED is handled by ContactRevealOverlay
-    if (!cinematic.active || cinematic.type === 'CONTACT_REVEALED') { setVisible(false); return; }
+    // These types have dedicated overlays
+    const DELEGATED = ['CONTACT_REVEALED', 'FORCED_PATROL', 'COMBAT_RESULT'];
+    if (!cinematic.active || DELEGATED.includes(cinematic.type)) { setVisible(false); return; }
+    // JobSequenceOverlay handles JOB_RESULT for the player who did the job
+    const { mySessionId } = useGameStore.getState();
+    if (cinematic.type === 'JOB_RESULT' && cinematic.payload.sessionId === mySessionId) { setVisible(false); return; }
     setText(formatEvent(cinematic.type, cinematic.payload));
     setVisible(true);
 

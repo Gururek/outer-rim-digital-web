@@ -9,6 +9,9 @@ import GameOverScreen from './ui/GameOverScreen';
 import HyperspaceEffect from './scenes/fx/HyperspaceEffect';
 import DiceRoll3D from './scenes/fx/DiceRoll3D';
 import ContactRevealOverlay from './ui/ContactRevealOverlay';
+import CombatOverlay from './ui/CombatOverlay';
+import JobSequenceOverlay from './ui/JobSequenceOverlay';
+import PlanetEnvironment from './ui/PlanetEnvironment';
 import { useAudio } from './hooks/useAudio';
 import { useSettingsStore } from './stores/settingsStore';
 import { useLayoutEffect } from 'react';
@@ -68,6 +71,22 @@ export default function App() {
     );
   }
 
+  if (connectionStatus === 'reconnecting') {
+    return (
+      <div style={S.center}>
+        <div style={{ ...S.centreTitle, color: 'var(--ck-gold)' }} className="ck-anim-blink">
+          CONNECTION LOST
+        </div>
+        <p style={S.centreSub}>Attempting to reconnect…</p>
+        <p style={{ ...S.centreSub, marginTop: 4, opacity: .5 }}>Slot held for up to 28 seconds.</p>
+        <button style={{ ...S.centreBtn, marginTop: '1rem', borderColor: 'var(--ck-red)', color: 'var(--ck-red)' }}
+          onClick={() => setConnectionStatus('disconnected')}>
+          ABANDON RECONNECT
+        </button>
+      </div>
+    );
+  }
+
   if (connectionStatus !== 'connected') {
     return <LobbyScreen onConnect={handleCreate} onJoin={handleJoin} />;
   }
@@ -104,9 +123,12 @@ export default function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: 'var(--ck-bg)' }}>
       <GalaxyMap onMoveConfirm={handleMove} />
+      <PlanetEnvironment />
       <CockpitOverlay />
       <Terminal onSend={send} />
       <CinematicOverlay onDismiss={dismissCinematic} />
+      <CombatOverlay onDismiss={dismissCinematic} />
+      <JobSequenceOverlay onDismiss={dismissCinematic} />
       <HyperspaceEffect />
       <DiceRoll3D />
       <ContactRevealOverlay />

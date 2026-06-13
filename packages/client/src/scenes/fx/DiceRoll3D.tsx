@@ -61,10 +61,8 @@ export default function DiceRoll3D() {
   const [result, setResult] = useState<DiceResult | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const isDice =
-    cinematic.active &&
-    (cinematic.type === 'DICE_ROLLED' ||
-      (cinematic.type === 'COMBAT_RESULT' && cinematic.payload.rolls != null));
+  // COMBAT_RESULT is handled by CombatOverlay (which has its own inline dice)
+  const isDice = cinematic.active && cinematic.type === 'DICE_ROLLED';
 
   useEffect(() => {
     if (!isDice) return;

@@ -43,7 +43,7 @@ interface GameStore {
   planningChoice: string | null;
   cinematic: CinematicState;
   gameOver: { winnerId: string; winnerName: string; winnerFame: number };
-  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
   moveHighlight: { hyperdrive: number; startNodeId: number } | null;
 
   // Actions
