@@ -3,6 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { useGameStore } from '../stores/gameStore';
+import FactionInsignia from './FactionInsignia';
 
 type Stage = 'intercept' | 'rolling' | 'result' | null;
 
@@ -108,7 +109,7 @@ export default function CombatOverlay({ onDismiss }: { onDismiss: () => void }) 
         <div style={{ ...S.interceptCard, borderColor: factionColor, boxShadow: `0 0 60px ${factionColor}33` }}>
           <div style={{ ...S.topBar, background: factionColor }} />
           <div style={S.interceptBody}>
-            <div style={{ ...S.bigIcon, color: factionColor }}>⚠</div>
+            <FactionInsignia faction={faction} size={48} color={factionColor} />
             <div style={{ ...S.interceptHeading, color: factionColor }}>PATROL INTERCEPT</div>
             <div style={{ ...S.interceptFaction, color: factionColor }}>{FACTION_LABEL[faction]}</div>
             <div style={S.interceptSub}>YOUR VESSEL HAS BEEN STOPPED</div>
@@ -180,6 +181,7 @@ export default function CombatOverlay({ onDismiss }: { onDismiss: () => void }) 
           {/* Right — patrol */}
           <div style={S.combatant}>
             <div style={{ ...S.combatantRole, color: 'var(--ck-red)' }}>PATROL</div>
+            <FactionInsignia faction={faction} size={22} color={factionColor} opacity={0.7} />
             <div style={S.combatantName}>{FACTION_LABEL[faction]}</div>
             {stage === 'result' && (
               <div style={{ ...S.dmgChip, borderColor: 'var(--ck-red)', background: 'rgba(224,85,85,.1)' }}>

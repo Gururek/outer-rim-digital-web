@@ -4,6 +4,7 @@ import { useGameStore } from '../../stores/gameStore';
 import type { FactionType, GamePhase } from '@outer-rim/shared';
 import { useState } from 'react';
 import SettingsPanel from '../SettingsPanel';
+import FactionInsignia from '../FactionInsignia';
 
 // ─── Cockpit overlay: header bar + galaxy minimap + systems panel ─────────────
 
@@ -233,8 +234,15 @@ function GalaxyMinimap({ currentNodeId, playerNodes }: MinimapProps) {
 
 // ─── Reputation bar (3-segment: -1 / 0 / +1) ─────────────────────────────────
 
+const FACTION_FULL: Record<string, string> = {
+  HUTT:      'HUTT CARTEL',
+  SYNDICATE: 'SYNDICATE',
+  IMPERIAL:  'GALACTIC EMPIRE',
+  REBEL:     'REBEL ALLIANCE',
+};
+
 function RepBar({ faction, value, color }: { faction: string; value: number; color: string }) {
-  const label = value > 0 ? 'POSITIVE' : value < 0 ? 'NEGATIVE' : 'NEUTRAL';
+  const label = value > 0 ? 'ALLY' : value < 0 ? 'ENEMY' : 'NEUTRAL';
   const labelColor = value > 0 ? 'var(--ck-green)' : value < 0 ? 'var(--ck-red)' : 'var(--ck-dim)';
 
   const segColor = (seg: number): string => {
@@ -245,9 +253,14 @@ function RepBar({ faction, value, color }: { faction: string; value: number; col
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-        <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 8, color, letterSpacing: '.08em' }}>{faction}</span>
-        <span style={{ fontSize: 8, fontFamily: "'Share Tech Mono',monospace", color: labelColor }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3, gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <FactionInsignia faction={faction} size={10} color={color} />
+          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 7, color, letterSpacing: '.06em' }}>
+            {FACTION_FULL[faction] ?? faction}
+          </span>
+        </div>
+        <span style={{ fontSize: 7, fontFamily: "'Share Tech Mono',monospace", color: labelColor }}>{label}</span>
       </div>
       <div style={{ display: 'flex', gap: 2 }}>
         {([-1, 0, 1] as const).map(seg => (

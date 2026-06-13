@@ -3,18 +3,18 @@ import { useGameStore } from '../stores/gameStore';
 import { MAP_NODES } from '@outer-rim/shared';
 import gsap from 'gsap';
 
-// Mirrors the glow + primary colours from PlanetNode.tsx
+// Mirrors the glow + primary colours from PlanetNode.tsx; uses canon Star Wars lore labels
 const PLANET_ENV: Record<string, { glow: string; accent: string; label: string }> = {
-  tatooine:    { glow: '#f5a020', accent: '#c8823a', label: 'DESERT WORLD' },
-  rodia:       { glow: '#3cc87a', accent: '#1a5c28', label: 'JUNGLE WORLD' },
-  ryloth:      { glow: '#d4900a', accent: '#8a6428', label: 'ROCKY WORLD' },
-  mon_cala:    { glow: '#4da6ff', accent: '#1055a0', label: 'OCEAN WORLD' },
-  geonosis:    { glow: '#e05555', accent: '#6a2208', label: 'VOLCANIC WORLD' },
-  corellia:    { glow: '#4da6ff', accent: '#1a6030', label: 'URBAN WORLD' },
-  ord_mantell: { glow: '#8099b8', accent: '#4a4e5a', label: 'INDUSTRIAL WORLD' },
-  nal_hutta:   { glow: '#3cc87a', accent: '#4a7010', label: 'SWAMP WORLD' },
-  kessel:      { glow: '#8099b8', accent: '#1a1820', label: 'BARREN WORLD' },
-  maelstrom:   { glow: '#e05555', accent: '#2a0a40', label: 'ANOMALY' },
+  tatooine:    { glow: '#f5a020', accent: '#c8823a', label: 'OUTER RIM — TWIN SUNS DESERT' },
+  rodia:       { glow: '#3cc87a', accent: '#1a5c28', label: 'OUTER RIM — RODIAN HOMEWORLD' },
+  ryloth:      { glow: '#d4900a', accent: '#8a6428', label: 'OUTER RIM — TWIL\'EK HOMEWORLD' },
+  mon_cala:    { glow: '#4da6ff', accent: '#1055a0', label: 'OUTER RIM — MON CALAMARI OCEAN WORLD' },
+  geonosis:    { glow: '#e05555', accent: '#6a2208', label: 'OUTER RIM — BIRTHPLACE OF THE CLONE WARS' },
+  corellia:    { glow: '#4da6ff', accent: '#1a6030', label: 'CORE WORLD — HAN SOLO\'S HOMEWORLD' },
+  ord_mantell: { glow: '#8099b8', accent: '#4a4e5a', label: 'MID RIM — JUNKYARD WORLD, CRIMINAL HAVEN' },
+  nal_hutta:   { glow: '#3cc87a', accent: '#4a7010', label: 'OUTER RIM — SEAT OF THE HUTT GRAND COUNCIL' },
+  kessel:      { glow: '#8099b8', accent: '#1a1820', label: 'OUTER RIM — SPICE MINES, IMPERIAL PRISON' },
+  maelstrom:   { glow: '#e05555', accent: '#2a0a40', label: 'DEEP SPACE — UNSTABLE ASTEROID FIELD' },
 };
 
 export default function PlanetEnvironment() {
