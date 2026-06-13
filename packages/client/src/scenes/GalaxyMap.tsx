@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import { Vector2 } from 'three';
 import { MAP_NODES } from '@outer-rim/shared';
 import PlanetNode from './nodes/PlanetNode';
@@ -62,8 +62,13 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
       style={{ position: 'absolute', inset: 0 }}
     >
       {/* Lighting */}
-      <ambientLight intensity={0.08} />
-      <pointLight position={[0, 30, 0]} intensity={0.6} color="#4488cc" />
+      <ambientLight intensity={0.12} />
+      {/* Primary cool key light — overhead */}
+      <pointLight position={[0, 30, 0]} intensity={0.7} color="#4488cc" />
+      {/* Warm fill light — Outer Rim sun analogue */}
+      <directionalLight position={[-12, 8, -14]} intensity={0.35} color="#ffcc88" />
+      {/* Rim light from below for ship undersides */}
+      <pointLight position={[0, -8, 0]} intensity={0.15} color="#224466" />
 
       {/* Space background */}
       <Stars radius={400} depth={80} count={18000} factor={7} fade />
@@ -122,15 +127,17 @@ export default function GalaxyMap({ onMoveConfirm }: GalaxyMapProps) {
       {/* Post-processing */}
       <EffectComposer>
         <Bloom
-          intensity={0.15}
-          luminanceThreshold={0.4}
-          luminanceSmoothing={0.1}
+          intensity={0.5}
+          luminanceThreshold={0.28}
+          luminanceSmoothing={0.10}
+          mipmapBlur
         />
         <ChromaticAberration
-          offset={new Vector2(0.0005, 0.0005)}
+          offset={new Vector2(0.0007, 0.0007)}
           radialModulation={false}
           modulationOffset={0}
         />
+        <Vignette offset={0.25} darkness={0.65} eskil={false} />
       </EffectComposer>
     </Canvas>
   );

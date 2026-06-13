@@ -273,16 +273,35 @@ export default function PlanetNode({ node, isReachable, onMoveConfirm }: Props) 
           onPointerOut={() => setHovered(false)}
         >
           <sphereGeometry args={[R, 48, 48]} />
-          <meshStandardMaterial map={texture} roughness={0.75} metalness={0.05} />
+          <meshStandardMaterial
+            map={texture}
+            roughness={0.75}
+            metalness={0.05}
+            emissive={cfg.type === 'volcanic' ? '#331100' : cfg.type === 'anomaly' ? '#1a0033' : '#000000'}
+            emissiveIntensity={cfg.type === 'volcanic' ? 0.45 : cfg.type === 'anomaly' ? 0.55 : 0}
+          />
         </mesh>
 
-        {/* Atmosphere haze */}
+        {/* Inner atmosphere — additive glow hugging the surface */}
         <mesh>
-          <sphereGeometry args={[R * 1.08, 24, 24]} />
+          <sphereGeometry args={[R * 1.055, 24, 24]} />
           <meshBasicMaterial
             color={cfg.glow}
             transparent
-            opacity={isReachable ? 0.18 : 0.06}
+            opacity={isReachable ? 0.24 : 0.09}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+
+        {/* Outer diffuse atmosphere — wide limb glow */}
+        <mesh>
+          <sphereGeometry args={[R * 1.20, 20, 20]} />
+          <meshBasicMaterial
+            color={cfg.glow}
+            transparent
+            opacity={isReachable ? 0.11 : 0.04}
+            blending={THREE.AdditiveBlending}
             depthWrite={false}
           />
         </mesh>

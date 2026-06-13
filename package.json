@@ -19,5 +19,8 @@
       "esbuild",
       "msgpackr-extract"
     ]
+  },
+  "allowScripts": {
+    "file:../esbuild@0.28.0/node_modules/esbuild": true
   }
 }
